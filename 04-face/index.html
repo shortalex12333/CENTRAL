@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CENTRAL — Agent Ontology</title>
+<meta name="description" content="G9 skeleton: the live agent-authority ontology, rendered as a graph, not a drawing of it.">
+<style>
+  :root {
+    --bg: #0b0c0e; --panel: #131417; --border: #24262b; --text: #e8e9eb; --text-dim: #8a8d94;
+    --chat: #6b7280; --opinion: #a78bfa; --read: #34d399; --write-owned: #fbbf24; --write-external: #f87171; --other: #4b5563;
+    --mono: 'SF Mono', ui-monospace, 'Cascadia Code', Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    padding: 32px 24px 80px;
+  }
+  header { max-width: 1100px; margin: 0 auto 28px; }
+  h1 { font-size: 20px; font-weight: 600; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .sub { color: var(--text-dim); font-size: 13px; line-height: 1.6; max-width: 720px; }
+  .sub code { font-family: var(--mono); background: var(--panel); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+  main { max-width: 1100px; margin: 0 auto; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 10px 18px; margin: 18px 0 28px; font-size: 12px; color: var(--text-dim); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+  .domain {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px;
+  }
+  .domain-name { font-family: var(--mono); font-size: 13px; font-weight: 600; margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .domain-tables { font-size: 11px; color: var(--text-dim); margin-bottom: 12px; min-height: 14px; }
+  .verbs { display: flex; flex-wrap: wrap; gap: 6px; }
+  .verb {
+    font-family: var(--mono); font-size: 11px; padding: 3px 8px; border-radius: 6px;
+    border: 1px solid var(--border); cursor: default; position: relative;
+  }
+  .verb:hover::after {
+    content: attr(data-lane); position: absolute; bottom: 120%; left: 50%; transform: translateX(-50%);
+    background: #1c1d20; border: 1px solid var(--border); padding: 3px 7px; border-radius: 5px;
+    font-size: 10px; white-space: nowrap; color: var(--text); z-index: 5;
+  }
+  .lane-chat { border-color: var(--chat); color: var(--chat); }
+  .lane-opinion { border-color: var(--opinion); color: var(--opinion); }
+  .lane-read { border-color: var(--read); color: var(--read); }
+  .lane-write_owned { border-color: var(--write-owned); color: var(--write-owned); }
+  .lane-write_external { border-color: var(--write-external); color: var(--write-external); }
+  .lane-other { border-color: var(--other); color: var(--other); }
+
+  footer { max-width: 1100px; margin: 40px auto 0; font-size: 11px; color: var(--text-dim); border-top: 1px solid var(--border); padding-top: 16px; }
+  footer a { color: var(--text-dim); }
+</style>
+</head>
+<body>
+<header>
+  <h1>CENTRAL — Agent Authority Ontology</h1>
+  <div class="sub">
+    G9 skeleton (static, no live data yet). Every domain × verb-class cell below and the lane
+    it resolves to is <strong>real data</strong>, extracted from the legacy JARVIS harvest —
+    <code>term_groups.py</code> / <code>action_class.py</code> / <code>route_specs.py</code> —
+    not fabricated for this page. Hover a verb to see its resolved execution lane.
+    See <a href="https://github.com/shortalex12333/CENTRAL" style="color:#8a8d94">the repo</a>
+    for the full gate-tested build.
+  </div>
+</header>
+<main>
+  <div class="legend" id="legend"></div>
+  <div class="grid" id="grid"></div>
+</main>
+<footer>
+  Ontology source: JARVIS legacy audit, harvested read-only, 2026-08-19. Structure is a direct
+  port of <code>WHAT_ANCHORS</code> / <code>WHY_VERBS</code> / <code>route_class_for()</code> —
+  a UI rendering these files renders the running system, not a drawing of it.
+</footer>
+
+<script>
+// ── Real extracted data — WHAT anchors (domains), abbreviated keys only (not the full phrase gazetteer) ──
+const DOMAINS = ["chat","memory","network","linkedin","analytics","calendar","task","self","web","opinion","other"];
+
+const TABLES = {
+  chat: [], memory: ["facts","conversations"], network: ["people","companies"],
+  linkedin: ["li_posts","li_drafts","li_captures","li_post_bank","li_schedule"],
+  analytics: ["search_performance","daily_traffic","pagespeed_snapshots","properties"],
+  calendar: ["events","reminders"], task: ["tasks"], self: ["capabilities","events"],
+  web: [], opinion: [], other: [],
+};
+
+const VERBS = ["analyze","create","update","draft","delete","expand","read"];
+const WRITE_WHYS = new Set(["create","update","draft","delete"]);
+
+// direct port of route_class_for() from jarvis-runner/src/jarvis_runner/action_class.py-adjacent term_groups.py
+function routeClass(what, why) {
+  if (what === "chat") return "chat";
+  if (what === "opinion") return "opinion";
+  if (what === "other" || what == null) return "other";
+  if (WRITE_WHYS.has(why)) {
+    if (what === "self" || what === "calendar") return "write_external";
+    return "write_owned";
+  }
+  return "read";
+}
+
+const LANE_LABEL = {
+  chat: "chat", opinion: "opinion", read: "read",
+  write_owned: "write (owned, no confirm)", write_external: "write (external consequence — always confirms)",
+  other: "other (no route)",
+};
+
+const legend = document.getElementById("legend");
+Object.entries(LANE_LABEL).forEach(([lane, label]) => {
+  const el = document.createElement("span");
+  el.innerHTML = `<span class="dot" style="background:var(--${lane.replace('_','-')})"></span>${label}`;
+  legend.appendChild(el);
+});
+
+const grid = document.getElementById("grid");
+DOMAINS.forEach((domain) => {
+  const card = document.createElement("div");
+  card.className = "domain";
+  const tables = TABLES[domain];
+  card.innerHTML = `
+    <div class="domain-name">${domain}</div>
+    <div class="domain-tables">${tables.length ? tables.join(" · ") : "no DB retrieval"}</div>
+    <div class="verbs"></div>
+  `;
+  const verbsEl = card.querySelector(".verbs");
+  VERBS.forEach((verb) => {
+    const lane = routeClass(domain, verb);
+    const v = document.createElement("span");
+    v.className = `verb lane-${lane}`;
+    v.textContent = verb;
+    v.setAttribute("data-lane", LANE_LABEL[lane]);
+    verbsEl.appendChild(v);
+  });
+  grid.appendChild(card);
+});
+</script>
+</body>
+</html>
