@@ -1,0 +1,40 @@
+[dispatcher] starting — will process up to 3 item(s) from "errors:incoming", BRPOP timeout 8s each
+
+──────────────────────────────────────────────────────────────
+[dispatcher] item #1  project_id=celeste-os  culprit=apps/api/routes/billing.ts in processInvoice
+[dispatcher] ps proof (before decision): 0 claude stream-json process(es) running
+[dispatcher] ownership lookup: MATCH → CelesteOS-Cloud @ /Users/celeste7/Documents/CelesteOS-Cloud (threshold=0.9)
+[dispatcher] confidence=1 threshold=0.9 → ROUTE (happy path)
+[dispatcher] SPAWNING worker role=probe cwd=/Users/celeste7/Documents/CelesteOS-Cloud
+[worker] ready session=806c11be tools=30
+[worker] done turns=1 cost=$0.0191 error=none
+[worker] result: Investigate **apps/api/routes/billing.ts** to find what object or variable is undefined when `processInvoice` tries to access the `.amount` property on it.
+[dispatcher] ps proof (after worker exit): 0 claude stream-json process(es) running
+
+──────────────────────────────────────────────────────────────
+[dispatcher] item #2  project_id=myi2  culprit=src/handlers/quoteHandler.py in calculate_premium
+[dispatcher] ps proof (before decision): 0 claude stream-json process(es) running
+[dispatcher] ownership lookup: MATCH → MYI2 @ /Users/celeste7/Documents/MYI2 (threshold=0.9)
+[dispatcher] confidence=1 threshold=0.9 → ROUTE (happy path)
+[dispatcher] SPAWNING worker role=probe cwd=/Users/celeste7/Documents/MYI2
+[worker] ready session=4f5d46d6 tools=30
+[worker] done turns=1 cost=$0.0184 error=none
+[worker] result: The `calculate_premium` function in `src/handlers/quoteHandler.py` — check where it's accessing the 'coverage_limit' key and verify the data structure being passed to it has that field.
+[dispatcher] ps proof (after worker exit): 0 claude stream-json process(es) running
+
+──────────────────────────────────────────────────────────────
+[dispatcher] item #3  project_id=acme-legacy-checkout  culprit=unknown/service/checkoutProxy in handleRequest
+[dispatcher] ps proof (before decision): 0 claude stream-json process(es) running
+[dispatcher] ownership lookup: NO MATCH
+[dispatcher] confidence=0 threshold=0.9 → FALLBACK (unroutable)
+[dispatcher] would-be spawn suppressed — reason=no_ownership_match. NOT spawning any worker. NOT touching any directory.
+[dispatcher] logged to controlplane.unrouted_errors id=2d80250e-26c3-4895-8b25-602d30fa9085
+INSERT 0 1 status=needs_human_review
+[dispatcher] ps proof (after suppression): 0 claude stream-json process(es) running
+
+[dispatcher] === SUMMARY === processed 3/3 item(s)
+  - celeste-os: route (session=806c11be, cost=$0.0191)
+  - myi2: route (session=4f5d46d6, cost=$0.0184)
+  - acme-legacy-checkout: fallback (reason=no_ownership_match, unrouted_id=2d80250e-26c3-4895-8b25-602d30fa9085
+INSERT 0 1)
+{"ok":true,"processed":3,"results":[{"decision":"route","project_id":"celeste-os","session_id":"806c11be-9ab1-449e-95c2-5282573f3b45","cost_usd":0.0190544,"result":"Investigate **apps/api/routes/billing.ts** to find what object or variable is undefined when `processInvoice` tries to access the `.amount` property on it."},{"decision":"route","project_id":"myi2","session_id":"4f5d46d6-0032-4c25-866f-4da5e789c435","cost_usd":0.0184274,"result":"The `calculate_premium` function in `src/handlers/quoteHandler.py` — check where it's accessing the 'coverage_limit' key and verify the data structure being passed to it has that field."},{"decision":"fallback","project_id":"acme-legacy-checkout","reason":"no_ownership_match","unrouted_error_id":"2d80250e-26c3-4895-8b25-602d30fa9085\nINSERT 0 1"}]}

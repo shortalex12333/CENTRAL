@@ -1,0 +1,212 @@
+{
+  "startedAt": "2026-08-19T23:04:08.514Z",
+  "subtests": {
+    "step1_inflate": {
+      "description": "12 sequential --resume turns on one session, 5 facts planted",
+      "originalSessionId": "52f08075-a7dc-4784-b9bd-194aeb94cd15",
+      "turns": [
+        {
+          "turn": 1,
+          "kind": "fact",
+          "fact": "FACT1",
+          "sessionId": "52f08075-a7dc-4784-b9bd-194aeb94cd15",
+          "cost_usd": 0.035374800000000005,
+          "duration_api_ms": 5153,
+          "num_turns": 2,
+          "result_text": "LOGGED FACT1",
+          "is_error": false
+        },
+        {
+          "turn": 2,
+          "kind": "pad",
+          "fact": null,
+          "sessionId": "52f08075-a7dc-4784-b9bd-194aeb94cd15",
+          "cost_usd": 0.034859600000000004,
+          "duration_api_ms": 3261,
+          "num_turns": 2,
+          "result_text": "LOGGED PAD2",
+          "is_error": false
+        },
+        {
+          "turn": 3,
+          "kind": "pad",
+          "fact": null,
+          "sessionId": "52f08075-a7dc-4784-b9bd-194aeb94cd15",
+          "cost_usd": 0.0084214,
+          "duration_api_ms": 3166,
+          "num_turns": 2,
+          "result_text": "LOGGED PAD3",
+          "is_error": false
+        },
+        {
+          "turn": 4,
+          "kind": "fact",
+          "fact": "FACT2",
+          "sessionId": "52f08075-a7dc-4784-b9bd-194aeb94cd15",
+          "cost_usd": 0.015191,
+          "duration_api_ms": 8029,
+          "num_turns": 3,
+          "result_text": "LOGGED FACT2",
+          "is_error": false
+        },
+        {
+          "turn": 5,
+          "kind": "pad",
+          "fact": null,
+          "sessionId": "52f08075-a7dc-4784-b9bd-194aeb94cd15",
+          "cost_usd": 0.0088997,
+          "duration_api_ms": 3507,
+          "num_turns": 2,
+          "result_text": "LOGGED PAD5",
+          "is_error": false
+        },
+        {
+          "turn": 6,
+          "kind": "fact",
+          "fact": "FACT3",
+          "sessionId": "52f08075-a7dc-4784-b9bd-194aeb94cd15",
+          "cost_usd": 0.0087621,
+          "duration_api_ms": 2977,
+          "num_turns": 2,
+          "result_text": "LOGGED FACT3",
+          "is_error": false
+        },
+        {
+          "turn": 7,
+          "kind": "pad",
+          "fact": null,
+          "sessionId": "52f08075-a7dc-4784-b9bd-194aeb94cd15",
+          "cost_usd": 0.0088394,
+          "duration_api_ms": 2943,
+          "num_turns": 2,
+          "result_text": "LOGGED PAD7",
+          "is_error": false
+        },
+        {
+          "turn": 8,
+          "kind": "pad",
+          "fact": null,
+          "sessionId": "52f08075-a7dc-4784-b9bd-194aeb94cd15",
+          "cost_usd": 0.0089156,
+          "duration_api_ms": 3138,
+          "num_turns": 2,
+          "result_text": "LOGGED PAD8",
+          "is_error": false
+        },
+        {
+          "turn": 9,
+          "kind": "fact",
+          "fact": "FACT4",
+          "sessionId": "52f08075-a7dc-4784-b9bd-194aeb94cd15",
+          "cost_usd": 0.008979899999999999,
+          "duration_api_ms": 2967,
+          "num_turns": 2,
+          "result_text": "LOGGED FACT4",
+          "is_error": false
+        },
+        {
+          "turn": 10,
+          "kind": "pad",
+          "fact": null,
+          "sessionId": "52f08075-a7dc-4784-b9bd-194aeb94cd15",
+          "cost_usd": 0.009271500000000002,
+          "duration_api_ms": 2962,
+          "num_turns": 2,
+          "result_text": "LOGGED PAD10",
+          "is_error": false
+        },
+        {
+          "turn": 11,
+          "kind": "pad",
+          "fact": null,
+          "sessionId": "52f08075-a7dc-4784-b9bd-194aeb94cd15",
+          "cost_usd": 0.0091634,
+          "duration_api_ms": 3359,
+          "num_turns": 2,
+          "result_text": "LOGGED PAD11",
+          "is_error": false
+        },
+        {
+          "turn": 12,
+          "kind": "fact",
+          "fact": "FACT5",
+          "sessionId": "52f08075-a7dc-4784-b9bd-194aeb94cd15",
+          "cost_usd": 0.009202499999999999,
+          "duration_api_ms": 4286,
+          "num_turns": 2,
+          "result_text": "LOGGED FACT5",
+          "is_error": false
+        }
+      ],
+      "finalTurnBaseline": {
+        "cost_usd": 0.009202499999999999,
+        "duration_api_ms": 4286,
+        "num_turns": 2
+      }
+    },
+    "step2_naive_resume_control": {
+      "description": "Same session, resumed one more time, asked to recall 2 planted facts",
+      "sessionId": "52f08075-a7dc-4784-b9bd-194aeb94cd15",
+      "cost_usd": 0.0046863,
+      "duration_api_ms": 2282,
+      "num_turns": 1,
+      "result_text": "PORT=8791 ROLE=ORACLE",
+      "correct": true
+    },
+    "step3_compaction": {
+      "description": "Deterministically-extracted 5-fact artifact opened in a FRESH session, same recall question",
+      "compactArtifact": {
+        "facts": {
+          "FACT1": "the deploy port is 8791",
+          "FACT2": "agent role X's name is ORACLE",
+          "FACT3": "file g2_manifest.txt contains 42 lines",
+          "FACT4": "the fallback region is eu-west-2",
+          "FACT5": "the retry budget is 3 attempts"
+        },
+        "pending": "none"
+      },
+      "compactJsonCharLen": 235,
+      "approxTokens": 59,
+      "sessionId": "392b0ace-7afa-4b74-8639-6ea5e6115751",
+      "cost_usd": 0.021697499999999998,
+      "duration_api_ms": 2629,
+      "num_turns": 1,
+      "result_text": "PORT=8791 ROLE=ORACLE",
+      "correct": true
+    },
+    "step4_fork_isolation": {
+      "description": "--fork-session teaches BANANA to a fork; original session must not know it",
+      "originalSessionId": "52f08075-a7dc-4784-b9bd-194aeb94cd15",
+      "forkedSessionId": "5e0b095e-8b47-4ef9-bd79-c5d907483afd",
+      "forkProducedDistinctSessionId": true,
+      "step4a": {
+        "cost_usd": 0.0044805999999999995,
+        "duration_api_ms": 1394,
+        "result_text": "NOTED BANANA"
+      },
+      "step4b": {
+        "cost_usd": 0.0056505999999999995,
+        "duration_api_ms": 3282,
+        "result_text": "NO CODENAME KNOWN"
+      },
+      "leaked": false,
+      "pass": true
+    }
+  },
+  "aggregate": {
+    "totalCostUsd": 0.20239589999999996,
+    "totalApiInvocations": 16,
+    "step3_vs_step2": {
+      "step2_cost_usd": 0.0046863,
+      "step3_cost_usd": 0.021697499999999998,
+      "cost_delta_usd": -0.017011199999999997,
+      "step2_duration_api_ms": 2282,
+      "step3_duration_api_ms": 2629,
+      "duration_delta_ms": -347,
+      "step3_correct": true,
+      "pass": false
+    },
+    "fork_isolation_pass": true,
+    "overall_pass": false
+  }
+}

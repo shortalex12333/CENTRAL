@@ -1,0 +1,10 @@
+{
+  "project_id": "celeste-os",
+  "culprit": "apps/api/routes/billing.ts in processInvoice",
+  "exception_type": "TypeError",
+  "exception_value": "Cannot read properties of undefined (reading 'amount')",
+  "stack_frames": [
+    {"filename": "apps/api/routes/billing.ts", "function": "processInvoice", "lineno": 142},
+    {"filename": "apps/api/lib/stripeClient.ts", "function": "createInvoiceItem", "lineno": 58}
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "project_id": "acme-legacy-checkout",
+  "culprit": "unknown/service/checkoutProxy in handleRequest",
+  "exception_type": "ConnectionError",
+  "exception_value": "Could not resolve host checkout-legacy.internal — cross-boundary error, project not in ownership table",
+  "stack_frames": [
+    {"filename": "unknown/service/checkoutProxy.js", "function": "handleRequest", "lineno": 19}
+  ]
+}

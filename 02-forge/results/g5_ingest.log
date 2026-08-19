@@ -1,0 +1,5 @@
+[ingest] listening on http://127.0.0.1:8899  POST /ingest, GET /health
+[ingest] pushes to redis list "errors:incoming" on port 6380
+[ingest] queued project_id=celeste-os culprit=apps/api/routes/billing.ts in processInvoice → errors:incoming (len=1)
+[ingest] queued project_id=myi2 culprit=src/handlers/quoteHandler.py in calculate_premium → errors:incoming (len=2)
+[ingest] queued project_id=acme-legacy-checkout culprit=unknown/service/checkoutProxy in handleRequest → errors:incoming (len=3)

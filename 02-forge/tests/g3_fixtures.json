@@ -1,0 +1,342 @@
+{
+  "_meta": {
+    "purpose": "G3 CARL judge test fixtures — 20 hand-authored synthetic COMPACTED event-stream summaries. Fabricated fixtures only, zero cost, no real Claude API calls made to produce them.",
+    "event_types": {
+      "system": "session init marker, s='init'",
+      "assistant": "one assistant turn; optional 'note' with the assistant's stated intent",
+      "tool_use": "a tool call; 'tool' name + 'args'",
+      "tool_result": "outcome of the preceding tool_use; 'ok' bool, optional 'err'/'note'/'value'",
+      "checkpoint": "compacted periodic telemetry snapshot: cumulative 'num_turns', 'cost_usd', optional 'lines_changed' (marginal progress since prior checkpoint)",
+      "watchdog": "compacted stall signal: 'silence_ms' since the last event, 'since_last_event' names that event's type",
+      "result": "terminal event — session ended cleanly. carries final 'num_turns' and 'cost_usd'. ABSENCE of this event means the session has no confirmed clean end."
+    },
+    "expected_verdict_mapping": "expected='continue' for all 10 healthy fixtures (mid-run-with-no-red-flags, or cleanly completed via a 'result' event). expected='stop' for all 10 pathological fixtures (needs supervisor intervention)."
+  },
+  "fixtures": [
+    {
+      "id": "h01",
+      "label": "healthy",
+      "category": "clean-short-completed",
+      "expected": "continue",
+      "stream": [
+        {"t":"system","s":"init"},
+        {"t":"assistant"},
+        {"t":"tool_use","tool":"Read","args":{"file":"config.py"}},
+        {"t":"tool_result","tool":"Read","ok":true},
+        {"t":"assistant"},
+        {"t":"tool_use","tool":"Edit","args":{"file":"config.py","change":"fix default port"}},
+        {"t":"tool_result","tool":"Edit","ok":true},
+        {"t":"result","num_turns":3,"cost_usd":0.04}
+      ]
+    },
+    {
+      "id": "h02",
+      "label": "healthy",
+      "category": "mid-run-early-exploration",
+      "expected": "continue",
+      "stream": [
+        {"t":"system","s":"init"},
+        {"t":"assistant"},
+        {"t":"tool_use","tool":"Bash","args":{"cmd":"ls -la"}},
+        {"t":"tool_result","tool":"Bash","ok":true},
+        {"t":"assistant"},
+        {"t":"tool_use","tool":"Read","args":{"file":"README.md"}},
+        {"t":"tool_result","tool":"Read","ok":true},
+        {"t":"assistant","note":"reading package.json next to understand the build"},
+        {"t":"watchdog","silence_ms":4000,"since_last_event":"assistant"}
+      ]
+    },
+    {
+      "id": "h03",
+      "label": "healthy",
+      "category": "clean-completed-several-distinct-tools",
+      "expected": "continue",
+      "stream": [
+        {"t":"system","s":"init"},
+        {"t":"assistant"},
+        {"t":"tool_use","tool":"Grep","args":{"pattern":"TODO"}},
+        {"t":"tool_result","tool":"Grep","ok":true},
+        {"t":"assistant"},
+        {"t":"tool_use","tool":"Read","args":{"file":"api.py"}},
+        {"t":"tool_result","tool":"Read","ok":true},
+        {"t":"assistant"},
+        {"t":"tool_use","tool":"Edit","args":{"file":"api.py","change":"add input validation"}},
+        {"t":"tool_result","tool":"Edit","ok":true},
+        {"t":"assistant"},
+        {"t":"tool_use","tool":"Bash","args":{"cmd":"pytest tests/test_api.py"}},
+        {"t":"tool_result","tool":"Bash","ok":true,"note":"5 passed"},
+        {"t":"result","num_turns":6,"cost_usd":0.11}
+      ]
+    },
+    {
+      "id": "h04",
+      "label": "healthy",
+      "category": "mid-run-steady-progress",
+      "expected": "continue",
+      "stream": [
+        {"t":"system","s":"init"},
+        {"t":"assistant"},{"t":"tool_use","tool":"Read","args":{"file":"main.py"}},{"t":"tool_result","tool":"Read","ok":true},
+        {"t":"assistant"},{"t":"tool_use","tool":"Edit","args":{"file":"main.py","change":"add structured logging"}},{"t":"tool_result","tool":"Edit","ok":true},
+        {"t":"assistant"},{"t":"tool_use","tool":"Bash","args":{"cmd":"python main.py"}},{"t":"tool_result","tool":"Bash","ok":true},
+        {"t":"assistant"},{"t":"tool_use","tool":"Read","args":{"file":"logs/out.log"}},{"t":"tool_result","tool":"Read","ok":true},
+        {"t":"assistant","note":"one warning left, fixing it next"}
+      ]
+    },
+    {
+      "id": "h05",
+      "label": "healthy",
+      "category": "clean-completed-higher-turns-proportional-cost",
+      "expected": "continue",
+      "stream": [
+        {"t":"system","s":"init"},
+        {"t":"assistant"},{"t":"tool_use","tool":"Grep","args":{"pattern":"class Order"}},{"t":"tool_result","tool":"Grep","ok":true},
+        {"t":"assistant"},{"t":"tool_use","tool":"Read","args":{"file":"orders/models.py"}},{"t":"tool_result","tool":"Read","ok":true},
+        {"t":"assistant"},{"t":"tool_use","tool":"Edit","args":{"file":"orders/models.py","change":"add status enum"}},{"t":"tool_result","tool":"Edit","ok":true},
+        {"t":"assistant"},{"t":"tool_use","tool":"Read","args":{"file":"orders/serializers.py"}},{"t":"tool_result","tool":"Read","ok":true},
+        {"t":"assistant"},{"t":"tool_use","tool":"Edit","args":{"file":"orders/serializers.py","change":"expose status field"}},{"t":"tool_result","tool":"Edit","ok":true},
+        {"t":"assistant"},{"t":"tool_use","tool":"Bash","args":{"cmd":"pytest tests/test_orders.py"}},{"t":"tool_result","tool":"Bash","ok":false,"note":"1 failing: missing migration"},
+        {"t":"assistant"},{"t":"tool_use","tool":"Bash","args":{"cmd":"python manage.py makemigrations"}},{"t":"tool_result","tool":"Bash","ok":true},
+        {"t":"assistant"},{"t":"tool_use","tool":"Bash","args":{"cmd":"pytest tests/test_orders.py"}},{"t":"tool_result","tool":"Bash","ok":true,"note":"9 passed"},
+        {"t":"result","num_turns":8,"cost_usd":0.19}
+      ]
+    },
+    {
+      "id": "h06",
+      "label": "healthy",
+      "category": "mid-run-turns12-distinct-file-edits",
+      "expected": "continue",
+      "stream": [
+        {"t":"system","s":"init"},
+        {"t":"checkpoint","num_turns":6,"cost_usd":0.14,"lines_changed":58},
+        {"t":"assistant"},{"t":"tool_use","tool":"Read","args":{"file":"billing/invoice.py"}},{"t":"tool_result","tool":"Read","ok":true},
+        {"t":"assistant"},{"t":"tool_use","tool":"Edit","args":{"file":"billing/invoice.py","change":"add tax line calc"}},{"t":"tool_result","tool":"Edit","ok":true},
+        {"t":"checkpoint","num_turns":12,"cost_usd":0.27,"lines_changed":41},
+        {"t":"assistant","note":"moving on to the receipts module next"}
+      ]
+    },
+    {
+      "id": "h07",
+      "label": "healthy",
+      "category": "clean-completed-error-then-recovery",
+      "expected": "continue",
+      "stream": [
+        {"t":"system","s":"init"},
+        {"t":"assistant"},{"t":"tool_use","tool":"Bash","args":{"cmd":"npm test"}},{"t":"tool_result","tool":"Bash","ok":false,"err":"1 test failed: timeout"},
+        {"t":"assistant"},{"t":"tool_use","tool":"Edit","args":{"file":"test_timeout.js","change":"increase timeout to 5000ms"}},{"t":"tool_result","tool":"Edit","ok":true},
+        {"t":"assistant"},{"t":"tool_use","tool":"Bash","args":{"cmd":"npm test"}},{"t":"tool_result","tool":"Bash","ok":true,"note":"all tests pass"},
+        {"t":"result","num_turns":3,"cost_usd":0.06}
+      ]
+    },
+    {
+      "id": "h08",
+      "label": "healthy",
+      "category": "mid-run-initial-exploration",
+      "expected": "continue",
+      "stream": [
+        {"t":"system","s":"init"},
+        {"t":"assistant"},{"t":"tool_use","tool":"Bash","args":{"cmd":"find . -name '*.py'"}},{"t":"tool_result","tool":"Bash","ok":true},
+        {"t":"assistant"},{"t":"tool_use","tool":"Read","args":{"file":"setup.py"}},{"t":"tool_result","tool":"Read","ok":true},
+        {"t":"assistant","note":"forming a plan for the refactor"},
+        {"t":"watchdog","silence_ms":2500,"since_last_event":"assistant"}
+      ]
+    },
+    {
+      "id": "h09",
+      "label": "healthy",
+      "category": "clean-completed-long-legit-refactor",
+      "expected": "continue",
+      "stream": [
+        {"t":"system","s":"init"},
+        {"t":"checkpoint","num_turns":6,"cost_usd":0.15,"lines_changed":120},
+        {"t":"assistant"},{"t":"tool_use","tool":"Edit","args":{"file":"auth/views.py","change":"extract token refresh helper"}},{"t":"tool_result","tool":"Edit","ok":true},
+        {"t":"checkpoint","num_turns":12,"cost_usd":0.29,"lines_changed":95},
+        {"t":"assistant"},{"t":"tool_use","tool":"Bash","args":{"cmd":"pytest tests/test_auth.py"}},{"t":"tool_result","tool":"Bash","ok":false,"note":"2 failing: stale import"},
+        {"t":"assistant"},{"t":"tool_use","tool":"Edit","args":{"file":"auth/views.py","change":"fix import path"}},{"t":"tool_result","tool":"Edit","ok":true},
+        {"t":"checkpoint","num_turns":16,"cost_usd":0.37,"lines_changed":18},
+        {"t":"assistant"},{"t":"tool_use","tool":"Bash","args":{"cmd":"pytest tests/test_auth.py"}},{"t":"tool_result","tool":"Bash","ok":true,"note":"14 passed"},
+        {"t":"result","num_turns":18,"cost_usd":0.41}
+      ]
+    },
+    {
+      "id": "h10",
+      "label": "healthy",
+      "category": "mid-run-turns8-alternating-tools",
+      "expected": "continue",
+      "stream": [
+        {"t":"system","s":"init"},
+        {"t":"assistant"},{"t":"tool_use","tool":"Read","args":{"file":"cart/service.py"}},{"t":"tool_result","tool":"Read","ok":true},
+        {"t":"assistant"},{"t":"tool_use","tool":"Edit","args":{"file":"cart/service.py","change":"add discount code path"}},{"t":"tool_result","tool":"Edit","ok":true},
+        {"t":"assistant"},{"t":"tool_use","tool":"Bash","args":{"cmd":"pytest tests/test_cart.py"}},{"t":"tool_result","tool":"Bash","ok":true,"note":"7 passed"},
+        {"t":"assistant"},{"t":"tool_use","tool":"Read","args":{"file":"cart/models.py"}},{"t":"tool_result","tool":"Read","ok":true},
+        {"t":"checkpoint","num_turns":8,"cost_usd":0.20,"lines_changed":52},
+        {"t":"assistant","note":"adding the discount field to the model next"}
+      ]
+    },
+    {
+      "id": "p01",
+      "label": "pathological",
+      "category": "repeated-identical-tool-call-a",
+      "failure_shape": "(a) same tool called 8+ times identically in a row",
+      "expected": "stop",
+      "stream": [
+        {"t":"system","s":"init"},
+        {"t":"assistant"},{"t":"tool_use","tool":"Bash","args":{"cmd":"npm test"}},{"t":"tool_result","tool":"Bash","ok":false,"err":"1 failing: timeout"},
+        {"t":"assistant"},{"t":"tool_use","tool":"Bash","args":{"cmd":"npm test"}},{"t":"tool_result","tool":"Bash","ok":false,"err":"1 failing: timeout"},
+        {"t":"assistant"},{"t":"tool_use","tool":"Bash","args":{"cmd":"npm test"}},{"t":"tool_result","tool":"Bash","ok":false,"err":"1 failing: timeout"},
+        {"t":"assistant"},{"t":"tool_use","tool":"Bash","args":{"cmd":"npm test"}},{"t":"tool_result","tool":"Bash","ok":false,"err":"1 failing: timeout"},
+        {"t":"assistant"},{"t":"tool_use","tool":"Bash","args":{"cmd":"npm test"}},{"t":"tool_result","tool":"Bash","ok":false,"err":"1 failing: timeout"},
+        {"t":"assistant"},{"t":"tool_use","tool":"Bash","args":{"cmd":"npm test"}},{"t":"tool_result","tool":"Bash","ok":false,"err":"1 failing: timeout"},
+        {"t":"assistant"},{"t":"tool_use","tool":"Bash","args":{"cmd":"npm test"}},{"t":"tool_result","tool":"Bash","ok":false,"err":"1 failing: timeout"},
+        {"t":"assistant"},{"t":"tool_use","tool":"Bash","args":{"cmd":"npm test"}},{"t":"tool_result","tool":"Bash","ok":false,"err":"1 failing: timeout"}
+      ]
+    },
+    {
+      "id": "p02",
+      "label": "pathological",
+      "category": "repeated-identical-tool-call-a-variant",
+      "failure_shape": "(a variant) same Read on same file 10x with no edits in between, no progress",
+      "expected": "stop",
+      "stream": [
+        {"t":"system","s":"init"},
+        {"t":"assistant"},{"t":"tool_use","tool":"Read","args":{"file":"vendor/lib.min.js"}},{"t":"tool_result","tool":"Read","ok":true},
+        {"t":"assistant"},{"t":"tool_use","tool":"Read","args":{"file":"vendor/lib.min.js"}},{"t":"tool_result","tool":"Read","ok":true},
+        {"t":"assistant"},{"t":"tool_use","tool":"Read","args":{"file":"vendor/lib.min.js"}},{"t":"tool_result","tool":"Read","ok":true},
+        {"t":"assistant"},{"t":"tool_use","tool":"Read","args":{"file":"vendor/lib.min.js"}},{"t":"tool_result","tool":"Read","ok":true},
+        {"t":"assistant"},{"t":"tool_use","tool":"Read","args":{"file":"vendor/lib.min.js"}},{"t":"tool_result","tool":"Read","ok":true},
+        {"t":"assistant"},{"t":"tool_use","tool":"Read","args":{"file":"vendor/lib.min.js"}},{"t":"tool_result","tool":"Read","ok":true},
+        {"t":"assistant"},{"t":"tool_use","tool":"Read","args":{"file":"vendor/lib.min.js"}},{"t":"tool_result","tool":"Read","ok":true},
+        {"t":"assistant"},{"t":"tool_use","tool":"Read","args":{"file":"vendor/lib.min.js"}},{"t":"tool_result","tool":"Read","ok":true},
+        {"t":"assistant"},{"t":"tool_use","tool":"Read","args":{"file":"vendor/lib.min.js"}},{"t":"tool_result","tool":"Read","ok":true},
+        {"t":"assistant"},{"t":"tool_use","tool":"Read","args":{"file":"vendor/lib.min.js"}},{"t":"tool_result","tool":"Read","ok":true}
+      ]
+    },
+    {
+      "id": "p03",
+      "label": "pathological",
+      "category": "cost-turns-runaway-b",
+      "failure_shape": "(b) cost/turns climbing, num_turns > 30, no result event yet, same 3 failures persist",
+      "expected": "stop",
+      "stream": [
+        {"t":"system","s":"init"},
+        {"t":"assistant"},{"t":"tool_use","tool":"Bash","args":{"cmd":"pytest"}},{"t":"tool_result","tool":"Bash","ok":false,"err":"3 failing"},
+        {"t":"checkpoint","num_turns":10,"cost_usd":0.65},
+        {"t":"assistant"},{"t":"tool_use","tool":"Edit","args":{"file":"module_a.py","change":"attempt fix 1"}},{"t":"tool_result","tool":"Edit","ok":true},
+        {"t":"assistant"},{"t":"tool_use","tool":"Bash","args":{"cmd":"pytest"}},{"t":"tool_result","tool":"Bash","ok":false,"err":"3 failing"},
+        {"t":"checkpoint","num_turns":22,"cost_usd":1.58},
+        {"t":"assistant"},{"t":"tool_use","tool":"Edit","args":{"file":"module_a.py","change":"attempt fix 2"}},{"t":"tool_result","tool":"Edit","ok":true},
+        {"t":"assistant"},{"t":"tool_use","tool":"Bash","args":{"cmd":"pytest"}},{"t":"tool_result","tool":"Bash","ok":false,"err":"3 failing"},
+        {"t":"checkpoint","num_turns":34,"cost_usd":2.91},
+        {"t":"assistant","note":"still investigating the same 3 failures"}
+      ]
+    },
+    {
+      "id": "p04",
+      "label": "pathological",
+      "category": "cost-turns-runaway-b-variant",
+      "failure_shape": "(b variant) num_turns=45, cost=3.50, still no result, turns escalating rapidly with no convergence",
+      "expected": "stop",
+      "stream": [
+        {"t":"system","s":"init"},
+        {"t":"checkpoint","num_turns":15,"cost_usd":0.90},
+        {"t":"checkpoint","num_turns":29,"cost_usd":2.05},
+        {"t":"checkpoint","num_turns":45,"cost_usd":3.50},
+        {"t":"assistant","note":"attempting yet another approach to fix the build"}
+      ]
+    },
+    {
+      "id": "p05",
+      "label": "pathological",
+      "category": "stream-stops-mid-turn-c",
+      "failure_shape": "(c) stream just stops — no terminal result event, last event is mid-turn (tool_use with no tool_result)",
+      "expected": "stop",
+      "stream": [
+        {"t":"system","s":"init"},
+        {"t":"assistant"},
+        {"t":"tool_use","tool":"Bash","args":{"cmd":"docker build ."}}
+      ]
+    },
+    {
+      "id": "p06",
+      "label": "pathological",
+      "category": "stream-stops-c-variant",
+      "failure_shape": "(c variant) stream cuts off after an assistant message, no result, watchdog shows a long silence with no further activity",
+      "expected": "stop",
+      "stream": [
+        {"t":"system","s":"init"},
+        {"t":"assistant"},{"t":"tool_use","tool":"Read","args":{"file":"schema.sql"}},{"t":"tool_result","tool":"Read","ok":true},
+        {"t":"assistant","note":"planning migration steps"},
+        {"t":"watchdog","silence_ms":600000,"since_last_event":"assistant"}
+      ]
+    },
+    {
+      "id": "p07",
+      "label": "pathological",
+      "category": "contradictory-flip-flop-d",
+      "failure_shape": "(d) contradictory/flip-flopping tool results on the same resource — tests oscillate pass/fail across repeated reverts",
+      "expected": "stop",
+      "stream": [
+        {"t":"system","s":"init"},
+        {"t":"assistant"},{"t":"tool_use","tool":"Bash","args":{"cmd":"pytest tests/test_billing.py"}},{"t":"tool_result","tool":"Bash","ok":true,"note":"all tests pass"},
+        {"t":"assistant"},{"t":"tool_use","tool":"Edit","args":{"file":"billing.py","change":"adjust rounding"}},{"t":"tool_result","tool":"Edit","ok":true},
+        {"t":"assistant"},{"t":"tool_use","tool":"Bash","args":{"cmd":"pytest tests/test_billing.py"}},{"t":"tool_result","tool":"Bash","ok":false,"note":"2 tests failing"},
+        {"t":"assistant"},{"t":"tool_use","tool":"Edit","args":{"file":"billing.py","change":"revert rounding change"}},{"t":"tool_result","tool":"Edit","ok":true},
+        {"t":"assistant"},{"t":"tool_use","tool":"Bash","args":{"cmd":"pytest tests/test_billing.py"}},{"t":"tool_result","tool":"Bash","ok":true,"note":"all tests pass"},
+        {"t":"assistant"},{"t":"tool_use","tool":"Edit","args":{"file":"billing.py","change":"reapply rounding change"}},{"t":"tool_result","tool":"Edit","ok":true},
+        {"t":"assistant"},{"t":"tool_use","tool":"Bash","args":{"cmd":"pytest tests/test_billing.py"}},{"t":"tool_result","tool":"Bash","ok":false,"note":"2 tests failing"},
+        {"t":"checkpoint","num_turns":8,"cost_usd":0.55},
+        {"t":"assistant","note":"reverting again"}
+      ]
+    },
+    {
+      "id": "p08",
+      "label": "pathological",
+      "category": "contradictory-flip-flop-d-variant",
+      "failure_shape": "(d variant) an edit is confirmed ok but the next read shows the pre-edit value, repeatedly — self-consistency failure loop",
+      "expected": "stop",
+      "stream": [
+        {"t":"system","s":"init"},
+        {"t":"assistant"},{"t":"tool_use","tool":"Read","args":{"file":"config.json"}},{"t":"tool_result","tool":"Read","ok":true,"value":{"debug":true}},
+        {"t":"assistant"},{"t":"tool_use","tool":"Edit","args":{"file":"config.json","change":"set debug=false"}},{"t":"tool_result","tool":"Edit","ok":true},
+        {"t":"assistant"},{"t":"tool_use","tool":"Read","args":{"file":"config.json"}},{"t":"tool_result","tool":"Read","ok":true,"value":{"debug":true}},
+        {"t":"assistant","note":"confused, debug is true again despite the edit being confirmed"},
+        {"t":"tool_use","tool":"Edit","args":{"file":"config.json","change":"set debug=false"}},{"t":"tool_result","tool":"Edit","ok":true},
+        {"t":"assistant"},{"t":"tool_use","tool":"Read","args":{"file":"config.json"}},{"t":"tool_result","tool":"Read","ok":true,"value":{"debug":true}},
+        {"t":"checkpoint","num_turns":7,"cost_usd":0.44},
+        {"t":"assistant","note":"editing again, the value keeps reverting"}
+      ]
+    },
+    {
+      "id": "p09",
+      "label": "pathological",
+      "category": "slow-burn-creep-e",
+      "failure_shape": "(e) slow-burn turn-count creep with shrinking marginal progress signal (lines_changed collapsing toward zero across checkpoints, no result)",
+      "expected": "stop",
+      "stream": [
+        {"t":"system","s":"init"},
+        {"t":"checkpoint","num_turns":10,"cost_usd":0.50,"lines_changed":40},
+        {"t":"checkpoint","num_turns":20,"cost_usd":1.10,"lines_changed":12},
+        {"t":"checkpoint","num_turns":30,"cost_usd":1.90,"lines_changed":3},
+        {"t":"checkpoint","num_turns":40,"cost_usd":2.80,"lines_changed":1},
+        {"t":"assistant","note":"making another minor tweak to formatting"}
+      ]
+    },
+    {
+      "id": "p10",
+      "label": "pathological",
+      "category": "slow-burn-creep-e-variant",
+      "failure_shape": "(e variant) repeated near-identical small edits (rename back and forth) with decreasing marginal progress, no result",
+      "expected": "stop",
+      "stream": [
+        {"t":"system","s":"init"},
+        {"t":"checkpoint","num_turns":8,"cost_usd":0.40,"lines_changed":25},
+        {"t":"assistant"},{"t":"tool_use","tool":"Edit","args":{"file":"utils.py","change":"rename variable x to y"}},{"t":"tool_result","tool":"Edit","ok":true},
+        {"t":"checkpoint","num_turns":18,"cost_usd":1.20,"lines_changed":6},
+        {"t":"assistant"},{"t":"tool_use","tool":"Edit","args":{"file":"utils.py","change":"rename variable y back to x"}},{"t":"tool_result","tool":"Edit","ok":true},
+        {"t":"checkpoint","num_turns":28,"cost_usd":2.00,"lines_changed":2},
+        {"t":"assistant"},{"t":"tool_use","tool":"Edit","args":{"file":"utils.py","change":"rename variable x to y again"}},{"t":"tool_result","tool":"Edit","ok":true},
+        {"t":"checkpoint","num_turns":37,"cost_usd":2.75,"lines_changed":1},
+        {"t":"assistant","note":"still tweaking the same naming"}
+      ]
+    }
+  ]
+}

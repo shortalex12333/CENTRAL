@@ -1,0 +1,12 @@
+FACT1: the deploy port is 8791
+PAD turn 2: routine housekeeping note 2
+PAD turn 3: routine housekeeping note 3
+FACT2: agent role X's name is ORACLE
+PAD turn 5: routine housekeeping note 5
+FACT3: file g2_manifest.txt contains 42 lines
+PAD turn 7: routine housekeeping note 7
+PAD turn 8: routine housekeeping note 8
+FACT4: the fallback region is eu-west-2
+PAD turn 10: routine housekeeping note 10
+PAD turn 11: routine housekeeping note 11
+FACT5: the retry budget is 3 attempts

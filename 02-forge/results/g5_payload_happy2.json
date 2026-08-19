@@ -1,0 +1,10 @@
+{
+  "project_id": "myi2",
+  "culprit": "src/handlers/quoteHandler.py in calculate_premium",
+  "exception_type": "KeyError",
+  "exception_value": "'coverage_limit'",
+  "stack_frames": [
+    {"filename": "src/handlers/quoteHandler.py", "function": "calculate_premium", "lineno": 87},
+    {"filename": "src/services/underwriting.py", "function": "apply_rules", "lineno": 33}
+  ]
+}
