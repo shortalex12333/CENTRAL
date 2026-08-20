@@ -53,12 +53,34 @@ const RATE_LIMIT_WARN  = 0.75;  // matches provider's surpassedThreshold
  * framework or production company uses an LLM-judge as the primary trigger —
  * CARL's Ollama judge stays downstream of this, for genuinely ambiguous cases only.
  * Research: 05-research/{A_FRAMEWORK_DETECTORS,B_MEASURABLE_SIGNALS}.md.
+ *
+ * 🔴 2026-08-20 — the cycle detector below is a direct port of Gemini CLI's shipped
+ * `LoopDetectionService` (`packages/core/dist/src/services/loopDetectionService.js`,
+ * read from the real installed npm package, not documentation — see
+ * `06-gemini/GX3_BUILTIN_ROT_DETECTION_RESULTS.md` for the full source citation).
+ * Gemini's Tier 1 checks a repeating cycle of period k for EVERY k from 1 to 5
+ * (`requiredLength = k * TOOL_CALL_LOOP_THRESHOLD`, `TOOL_CALL_LOOP_THRESHOLD = 5`)
+ * — one general routine, not a one-off period-1 check plus a one-off period-2
+ * check. It replaces the two special-cased blocks that used to live here
+ * (`HARD_STOP_AT=4` identical-in-a-row, `ALTERNATION_LEN=6` period-2-only), which
+ * could not see a period-3+ cycle (A-B-C-A-B-C...) at all — see
+ * `spawn.unit-test.mjs` for a fabricated proof that a period-3 cycle is now caught.
  */
 const STUCK_WINDOW = 20;          // OpenHands' scan window
-const NUDGE_AT = 3;                // corrective signal before hard-stop
-const HARD_STOP_AT = 4;            // identical fingerprints in a row
-const ERROR_HARD_STOP_AT = 3;      // same tool erroring N times in a row
-const ALTERNATION_LEN = 6;         // A-B-A-B... period-2 cycle detection
+const ERROR_HARD_STOP_AT = 3;     // same tool erroring N times in a row — UNCHANGED, unrelated mechanism
+const CYCLE_MIN_PERIOD = 1;       // period-1 == N-identical-calls-in-a-row (subsumes the old HARD_STOP_AT check)
+const CYCLE_MAX_PERIOD = 5;       // matches Gemini's real checked range (k=1..5), not a guess
+// Real Gemini ships TOOL_CALL_LOOP_THRESHOLD=5 (5 reps required at every period).
+// We deliberately tune down to 3 here: (a) it reproduces the exact nudge-then-
+// hard-stop behavior the old NUDGE_AT=3/HARD_STOP_AT=4 pair had for period 1 with
+// a single uniform constant (see evaluateCycle() below — first detection nudges,
+// a second detection after that hard-stops, so period 1 hard-stops on the 4th
+// identical call exactly as before); (b) this project's standing bias is to flag
+// over silently trust (MEMORY: bias_toward_flagging) and Tier-0.5 is free/local —
+// a false 'suspect-rot' here costs nothing but a swallowed nudge, while a missed
+// one costs a runaway. 5 remains a one-line tuning knob if 3 proves too sensitive
+// once this runs against real traffic.
+const CYCLE_MIN_REPEATS = 3;
 
 /** Stable fingerprint of a tool call: name + canonicalized args, not name alone. */
 function fingerprint(name, input) {
@@ -67,6 +89,76 @@ function fingerprint(name, input) {
       ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, canon(v[k])]))
       : v;
   return `${name}:${JSON.stringify(canon(input ?? {}))}`;
+}
+
+/**
+ * Non-cryptographic stable hash of a streamed text block, for the content-chanting
+ * detector (item 2 — Gemini's Tier 2 hashes 50-char streamed chunks; this ports the
+ * simpler per-block version the task called for: hash each assistant TEXT block
+ * whole, not a sliding sub-string window — see CARL_V2_DESIGN.md for the exact gap
+ * this leaves relative to Gemini's real Tier 2, and why it's an accepted trade-off
+ * here). FNV-1a-style; collisions only ever cause an extra flag, never a missed one.
+ */
+export function hashText(s) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return `text:${(h >>> 0).toString(16)}:${s.length}`;
+}
+
+/**
+ * General period-P cycle detector, P in [CYCLE_MIN_PERIOD, CYCLE_MAX_PERIOD].
+ * Finds the SMALLEST period P for which the last (P * repeats) hashes consist of
+ * exactly P distinct values, repeating in the same cyclic order, `repeats` times
+ * in a row. Ported from Gemini CLI's `LoopDetectionService` tool-call-cycle check
+ * (see the file-header comment above) — one routine subsumes what used to be two
+ * special-cased blocks (period 1 = old HARD_STOP_AT, period 2 = old ALTERNATION_LEN)
+ * and additionally catches period 3, 4, and 5 cycles neither old block could see.
+ * Requiring exactly P distinct values in the pattern (not "at least") prevents a
+ * smaller period's run from also spuriously matching a larger P (e.g. AAAAAA is
+ * period 1, not also a degenerate period 2 of [A,A]) — checking P in ascending
+ * order means the smallest true period is always the one reported.
+ */
+export function detectCycle(hashes, repeats) {
+  for (let period = CYCLE_MIN_PERIOD; period <= CYCLE_MAX_PERIOD; period++) {
+    const windowLen = period * repeats;
+    if (hashes.length < windowLen) continue;
+    const tail = hashes.slice(-windowLen);
+    const pattern = tail.slice(0, period);
+    if (new Set(pattern).size !== period) continue; // exactly P distinct values in one period
+    const cyclic = tail.every((v, i) => v === pattern[i % period]);
+    if (cyclic) return { period, pattern };
+  }
+  return null;
+}
+
+/**
+ * Translate a detectCycle() match into the project's nudge-then-hard-stop shape,
+ * mirroring Gemini CLI's own consumer logic (loop `count === 1` → inject a
+ * corrective message and continue; `count > 1` → hard stop — see
+ * GX3_BUILTIN_ROT_DETECTION_RESULTS.md § "What happens on detection"). One flag per
+ * signal family (`familyKey`, e.g. 'tool' or 'text') stored in the existing
+ * `nudged` Set is enough to reproduce the 1-vs-2+ distinction: the FIRST time this
+ * family detects a cycle, only a nudge fires and the run continues; if the SAME
+ * family detects a cycle AGAIN afterward (the nudge didn't resolve it), it
+ * hard-stops. This deliberately does not implement Gemini's turn-budget reduction
+ * on nudge (`boundedTurns - 1`) — this codebase has no equivalent turn-budget
+ * concept at the Tier-0.5 layer; CARL v2's TURN_GATE is the analogous idea one
+ * layer up.
+ */
+export function evaluateCycle(worker, hashes, familyKey, reasonPeriod1, reasonOther) {
+  const hit = detectCycle(hashes, CYCLE_MIN_REPEATS);
+  if (!hit) return;
+  const nudgeKey = `cycle:${familyKey}`;
+  const reason = hit.period === 1 ? reasonPeriod1 : reasonOther;
+  if (!worker.state.nudged.has(nudgeKey)) {
+    worker.state.nudged.add(nudgeKey);
+    worker.emit('nudge', { reason, period: hit.period, pattern: hit.pattern });
+  } else {
+    worker.emit('suspect-rot', { reason, period: hit.period, pattern: hit.pattern, state: worker.state });
+  }
 }
 
 export class Worker extends EventEmitter {
@@ -80,7 +172,9 @@ export class Worker extends EventEmitter {
       toolCalls: [], rateLimit: null, error: null, result: null,
       startedAt: Date.now(), endedAt: null,
       // Tier-0.5: fingerprint history (not just tool names) + per-fingerprint error streaks.
-      fingerprints: [], errorStreaks: new Map(), nudged: new Set(),
+      // textFingerprints: rolling hashes of streamed assistant TEXT blocks — separate
+      // from tool-call fingerprints, see hashText()/evaluateCycle() (item 2, GX3-derived).
+      fingerprints: [], textFingerprints: [], errorStreaks: new Map(), nudged: new Set(),
     };
   }
 
@@ -165,6 +259,11 @@ export class Worker extends EventEmitter {
             this.state.toolCalls.push(b.name);
             this.state.fingerprints.push({ id: b.id, fp: fingerprint(b.name, b.input) });
             this.emit('tool', b.name);
+          } else if (b.type === 'text' && b.text && b.text.trim()) {
+            // Item 2 — text-content-repetition tracking. Old code only ever looked at
+            // tool_use blocks; an agent that loops on saying similar things without
+            // repeating a tool call was invisible to Tier-0.5 entirely until this.
+            this.state.textFingerprints.push(hashText(b.text.trim()));
           }
         }
         break;
@@ -206,30 +305,30 @@ export class Worker extends EventEmitter {
 
     // Tier-0.5 rot heuristics: free, no model call, deterministic fingerprint+count
     // only — the pattern every framework/production case in the research converged
-    // on. Escalate to CARL's judge only for what these can't resolve.
-    const recent = this.state.fingerprints.slice(-STUCK_WINDOW).map((f) => f.fp);
-
-    const tail = recent.slice(-HARD_STOP_AT);
-    const identicalRun = tail.length === HARD_STOP_AT && new Set(tail).size === 1;
-    const nudgeRun = recent.slice(-NUDGE_AT).length === NUDGE_AT &&
-      new Set(recent.slice(-NUDGE_AT)).size === 1;
-    if (nudgeRun && !identicalRun && !this.state.nudged.has('loop')) {
-      this.state.nudged.add('loop');
-      this.emit('nudge', { reason: 'repeated_identical_tool_call', fingerprint: tail[0] });
-    }
-    if (identicalRun) {
-      this.emit('suspect-rot', { reason: 'repeated_identical_tool_call', fingerprint: tail[0], state: this.state });
-    }
-
-    // A-B-A-B... period-2 cycling — distinct fingerprints, but oscillating rather
-    // than progressing. Misses this class entirely if you only check for a single
-    // repeated value.
-    const altTail = recent.slice(-ALTERNATION_LEN);
-    if (altTail.length === ALTERNATION_LEN) {
-      const [a, b] = altTail;
-      const alternating = a !== b && altTail.every((v, i) => v === (i % 2 === 0 ? a : b));
-      if (alternating) this.emit('suspect-rot', { reason: 'alternating_tool_cycle', pair: [a, b], state: this.state });
-    }
+    // on, and the one Gemini CLI's own shipped Tier 1/Tier 2 independently confirm
+    // (GX3_BUILTIN_ROT_DETECTION_RESULTS.md). Escalate to CARL's judge only for what
+    // these can't resolve.
+    //
+    // General period-1..5 cycle detector, run against two independent signal
+    // families — tool-call fingerprints (unchanged data source) and, new, streamed
+    // assistant text hashes (item 2). Subsumes the old identical-run (period 1) and
+    // alternating-cycle (period 2) special cases, plus catches period 3/4/5 neither
+    // could see at all — see detectCycle()/evaluateCycle() above for the algorithm
+    // and the nudge-then-hard-stop translation.
+    evaluateCycle(
+      this,
+      this.state.fingerprints.slice(-STUCK_WINDOW).map((f) => f.fp),
+      'tool',
+      'repeated_identical_tool_call',
+      'cyclic_tool_pattern',
+    );
+    evaluateCycle(
+      this,
+      this.state.textFingerprints.slice(-STUCK_WINDOW),
+      'text',
+      'repeated_text_content',
+      'cyclic_text_pattern',
+    );
 
     if (this.state.turns > 40) this.emit('suspect-rot', { reason: 'turn_cap', state: this.state });
   }

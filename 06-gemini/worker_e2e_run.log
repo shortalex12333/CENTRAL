@@ -1,0 +1,3 @@
+[ready] conv=556534f9-388a-4707-b4d0-a7f5ac80d7fd tools=57 permission_mode=always-proceed
+[tool ] find_by_name
+[tool ] view_file

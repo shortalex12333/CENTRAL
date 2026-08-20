@@ -1,0 +1,103 @@
+No previous sessions found for this project.
+Error authenticating: _GaxiosError: Resource has been exhausted (e.g. check quota).
+    at Gaxios._request (file:///opt/homebrew/lib/node_modules/@google/gemini-cli/bundle/chunk-32XQ54AJ.js:17446:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async _OAuth2Client.requestAsync (file:///opt/homebrew/lib/node_modules/@google/gemini-cli/bundle/chunk-32XQ54AJ.js:19643:18)
+    at async CodeAssistServer.requestPost (file:///opt/homebrew/lib/node_modules/@google/gemini-cli/bundle/chunk-32XQ54AJ.js:309679:17)
+    at async _doSetupUser (file:///opt/homebrew/lib/node_modules/@google/gemini-cli/bundle/chunk-32XQ54AJ.js:310001:16) {
+  config: {
+    url: URL {
+      href: 'https://cloudcode-pa.googleapis.com/v1internal:onboardUser',
+      origin: 'https://cloudcode-pa.googleapis.com',
+      protocol: 'https:',
+      username: '',
+      password: '',
+      host: 'cloudcode-pa.googleapis.com',
+      hostname: 'cloudcode-pa.googleapis.com',
+      port: '',
+      pathname: '/v1internal:onboardUser',
+      search: '',
+      searchParams: URLSearchParams {},
+      hash: ''
+    },
+    method: 'POST',
+    headers: Headers {
+      authorization: '<<REDACTED> - See `errorRedactor` option in `gaxios` for configuration>.',
+      'content-type': 'application/json',
+      'User-Agent': 'GeminiCLI-tui/0.55.1/gemini-2.5-pro (darwin; arm64; terminal) google-api-nodejs-client/10.9.0',
+      accept: 'application/json',
+      'x-goog-api-client': 'gl-node/24.4.1'
+    },
+    responseType: 'json',
+    body: '{"tierId":"standard-tier","metadata":{"ideType":"IDE_UNSPECIFIED","platform":"PLATFORM_UNSPECIFIED","pluginType":"GEMINI"}}',
+    retryConfig: {
+      retryDelay: 100,
+      retry: 3,
+      noResponseRetries: 3,
+      statusCodesToRetry: [Array],
+      currentRetryAttempt: 0,
+      httpMethodsToRetry: [Array],
+      retryDelayMultiplier: 2,
+      timeOfFirstRequest: 1787225946042,
+      totalTimeout: 9007199254740991,
+      maxRetryDelay: 9007199254740991
+    },
+    validateStatus: [Function: validateStatus],
+    errorRedactor: [Function: defaultErrorRedactor],
+    duplex: 'half'
+  },
+  response: _Response [Response] {
+    size: 0,
+    data: { error: [Object] },
+    config: {
+      url: URL {},
+      method: 'POST',
+      headers: Headers {
+        authorization: '<<REDACTED> - See `errorRedactor` option in `gaxios` for configuration>.',
+        'content-type': 'application/json',
+        'User-Agent': 'GeminiCLI-tui/0.55.1/gemini-2.5-pro (darwin; arm64; terminal) google-api-nodejs-client/10.9.0',
+        accept: 'application/json',
+        'x-goog-api-client': 'gl-node/24.4.1'
+      },
+      responseType: 'json',
+      body: '{"tierId":"standard-tier","metadata":{"ideType":"IDE_UNSPECIFIED","platform":"PLATFORM_UNSPECIFIED","pluginType":"GEMINI"}}',
+      retryConfig: [Object],
+      validateStatus: [Function: validateStatus],
+      errorRedactor: [Function: defaultErrorRedactor],
+      duplex: 'half'
+    },
+    Symbol(Body internals): {
+      body: [Gunzip],
+      stream: [Gunzip],
+      boundary: null,
+      disturbed: true,
+      error: null
+    },
+    Symbol(Response internals): {
+      type: 'default',
+      url: 'https://cloudcode-pa.googleapis.com/v1internal:onboardUser',
+      status: 429,
+      statusText: 'Too Many Requests',
+      headers: [Object],
+      counter: 0,
+      highWaterMark: 16384
+    }
+  },
+  code: 429,
+  status: 429,
+  error: undefined,
+  Symbol(gaxios-gaxios-error): '7.2.0',
+  [cause]: {
+    message: 'Resource has been exhausted (e.g. check quota).',
+    code: 429,
+    status: 'RESOURCE_EXHAUSTED',
+    errors: [ [Object] ]
+  }
+}
+Skill conflict detected: "find-skills" from "/Users/celeste7/.agents/skills/find-skills/SKILL.md" is overriding the same skill from "/Users/celeste7/.gemini/skills/find-skills/SKILL.md".
+An unexpected critical error occurred:Error: Resource has been exhausted (e.g. check quota).
+    at Gaxios._request (file:///opt/homebrew/lib/node_modules/@google/gemini-cli/bundle/chunk-32XQ54AJ.js:17446:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async _OAuth2Client.requestAsync (file:///opt/homebrew/lib/node_modules/@google/gemini-cli/bundle/chunk-32XQ54AJ.js:19643:18)
+    at async CodeAssistServer.requestPost (file:///opt/homebrew/lib/node_modules/@google/gemini-cli/bundle/chunk-32XQ54AJ.js:309679:17)
+    at async _doSetupUser (file:///opt/homebrew/lib/node_modules/@google/gemini-cli/bundle/chunk-32XQ54AJ.js:310001:16)

@@ -1,0 +1,19 @@
+Error authenticating: IneligibleTierError: This client is no longer supported for Gemini Code Assist for individuals. To continue using Gemini, please migrate to the Antigravity suite of products: https://antigravity.google
+    at throwIneligibleOrProjectIdError (file:///Users/celeste7/.npm/_npx/dd9e9c8429f94ae7/node_modules/@google/gemini-cli/bundle/chunk-LZUWGCRJ.js:310030:11)
+    at _doSetupUser (file:///Users/celeste7/.npm/_npx/dd9e9c8429f94ae7/node_modules/@google/gemini-cli/bundle/chunk-LZUWGCRJ.js:310019:5)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  ineligibleTiers: [
+    {
+      reasonCode: 'UNSUPPORTED_CLIENT',
+      reasonMessage: 'This client is no longer supported for Gemini Code Assist for individuals. To continue using Gemini, please migrate to the Antigravity suite of products: https://antigravity.google',
+      tierId: 'free-tier',
+      tierName: 'Gemini Code Assist for individuals'
+    }
+  ]
+}
+MCP issues detected. Run /mcp list for status.
+Skill conflict detected: "find-skills" from "/Users/celeste7/.agents/skills/find-skills/SKILL.md" is overriding the same skill from "/Users/celeste7/.gemini/skills/find-skills/SKILL.md".
+An unexpected critical error occurred:IneligibleTierError: This client is no longer supported for Gemini Code Assist for individuals. To continue using Gemini, please migrate to the Antigravity suite of products: https://antigravity.google
+    at throwIneligibleOrProjectIdError (file:///Users/celeste7/.npm/_npx/dd9e9c8429f94ae7/node_modules/@google/gemini-cli/bundle/chunk-LZUWGCRJ.js:310030:11)
+    at _doSetupUser (file:///Users/celeste7/.npm/_npx/dd9e9c8429f94ae7/node_modules/@google/gemini-cli/bundle/chunk-LZUWGCRJ.js:310019:5)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
