@@ -349,10 +349,47 @@ rule for this Mac: any future ephemeral cloudflared work must override `$HOME` e
 the default flow is not as isolated as "no config file" implies.** 10/10 round trips across
 two independent tunnels, ~75ms steady-state latency after cold start.
 
+## 2d. Context-rot detection — research complete, findings shipped into spawn.mjs
+
+Directly answers "will asking the agent if it's rotted ever work?" — no, confirmed across
+4 parallel research tracks (frameworks, measurable signals, watchdog libraries, production
+practice), not just asserted: **zero surveyed system uses an LLM-judge as the primary
+detector.** The converged, independently-reinvented pattern (OpenHands, AutoGPT, 5+ standalone
+projects, a real anthropics/claude-code runaway incident #4095): fingerprint a tool call
+(name + canonicalized args), sliding window, count exact repeats, nudge then hard-stop.
+
+Two real gaps this found in our own code, fixed same-session in `03-daemon/spawn.mjs`,
+verified via `spawn.unit-test.mjs` (7/7, zero API cost — fabricated events fed directly into
+`ingest()`, no subprocess): (1) `tool_result.is_error` flowed through every event completely
+unread — no `user`-event case existed; now tracked with a per-fingerprint error streak.
+(2) The loop heuristic matched tool **name only**; upgraded to a name+args fingerprint, plus
+a period-2 A-B-A-B alternation check — the one failure mode found that name-only or
+identical-repeat checks both miss entirely. CARL's Ollama judge is unchanged in role: still
+downstream, for the ambiguous case none of this catches. Full detail: `05-research/`.
+
+**Dead end confirmed, don't pursue:** perplexity/logprobs has the strongest academic backing
+of any candidate but Claude's API/CLI exposes no logprobs field — not available on this stack.
+
+**Carried forward, not yet built:** Anthropic's own guidance judges agent progress by
+*external ground truth* (test/build exit codes, git diff activity, file mtimes) checked from
+outside the subprocess — a different axis (effect, not behavior) worth its own gate once
+workers do real file-mutating work, not just read-only probes.
+
+## 🔴 Live constraint, 2026-08-19 later same day — rate limit hit 99%
+
+A single smoke-test spawn after the above patch returned `rate_limit_event` at **99%
+utilization**, tripping the daemon's own 92% backpressure threshold (was 85% earlier the same
+day). **No further real API-consuming tests until this clears.** All work past this point in
+the session was zero-API-cost only (unit tests against fabricated events, research, docs,
+git). Resume real-workload testing (the deferred deep G2 re-run, CARL validation against a
+real session, any new spawn.mjs integration test) only once headroom returns.
+
 ## 5. Immediate next actions, in order (revised post-gate-run + post-correction)
-1. **Decision needed from you, not a test:** tunnel/UI reuse. G7 deliberately did not touch
-   `kenoki.app` or the dead `unified-terminal` Vercel project. Reuse either, or provision a
-   fresh subdomain? This blocks G9 (Vercel UI), which is now the next open gate.
+1. **Decision needed from you, not a test:** tunnel/UI reuse. **RESOLVED 2026-08-19** — new
+   subdomain under `kenoki.app` (e.g. `central.kenoki.app`) on a brand-new, isolated
+   cloudflared tunnel, never touching the live `kenoki.yml`. **Deferred until later per
+   owner's direction** — use ephemeral quick tunnels (G7's proven pattern) for testing until
+   there's a real daemon worth exposing persistently.
 2. **Architecture decision, not urgent but load-bearing:** prototype a persistent
    `--input-format stream-json` worker mode as an alternative to `spawn.mjs`'s current
    spawn-per-turn `--resume` pattern (§2b.4) — gate it the same way before adopting.

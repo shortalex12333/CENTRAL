@@ -26,6 +26,30 @@ export const ROLES = {
 const RATE_LIMIT_PAUSE = 0.92;  // stop admitting new work
 const RATE_LIMIT_WARN  = 0.75;  // matches provider's surpassedThreshold
 
+/**
+ * Tier-0.5 rot detection. Deterministic fingerprint+count checks, zero LLM calls —
+ * the pattern independently reinvented by OpenHands' StuckDetector, AutoGPT's
+ * WatchdogComponent, and a real anthropics/claude-code runaway incident (#4095:
+ * 913 identical repeated commands, 38 consecutive tool errors). No surveyed
+ * framework or production company uses an LLM-judge as the primary trigger —
+ * CARL's Ollama judge stays downstream of this, for genuinely ambiguous cases only.
+ * Research: 05-research/{A_FRAMEWORK_DETECTORS,B_MEASURABLE_SIGNALS}.md.
+ */
+const STUCK_WINDOW = 20;          // OpenHands' scan window
+const NUDGE_AT = 3;                // corrective signal before hard-stop
+const HARD_STOP_AT = 4;            // identical fingerprints in a row
+const ERROR_HARD_STOP_AT = 3;      // same tool erroring N times in a row
+const ALTERNATION_LEN = 6;         // A-B-A-B... period-2 cycle detection
+
+/** Stable fingerprint of a tool call: name + canonicalized args, not name alone. */
+function fingerprint(name, input) {
+  const canon = (v) =>
+    v && typeof v === 'object' && !Array.isArray(v)
+      ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, canon(v[k])]))
+      : v;
+  return `${name}:${JSON.stringify(canon(input ?? {}))}`;
+}
+
 export class Worker extends EventEmitter {
   constructor({ role, task, cwd = process.cwd(), timeoutMs = 600_000 }) {
     super();
@@ -36,6 +60,8 @@ export class Worker extends EventEmitter {
       sessionId: null, events: 0, turns: 0, costUsd: 0,
       toolCalls: [], rateLimit: null, error: null, result: null,
       startedAt: Date.now(), endedAt: null,
+      // Tier-0.5: fingerprint history (not just tool names) + per-fingerprint error streaks.
+      fingerprints: [], errorStreaks: new Map(), nudged: new Set(),
     };
   }
 
@@ -117,7 +143,27 @@ export class Worker extends EventEmitter {
         for (const b of ev.message?.content ?? []) {
           if (b.type === 'tool_use') {
             this.state.toolCalls.push(b.name);
+            this.state.fingerprints.push({ id: b.id, fp: fingerprint(b.name, b.input) });
             this.emit('tool', b.name);
+          }
+        }
+        break;
+
+      // Tool results arrive as 'user' events (mirrors the Messages API tool_result
+      // shape) — this case did not exist before; is_error flowed through unread.
+      case 'user':
+        for (const b of ev.message?.content ?? []) {
+          if (b.type !== 'tool_result') continue;
+          const call = this.state.fingerprints.find((f) => f.id === b.tool_use_id);
+          const key = call?.fp ?? b.tool_use_id;
+          const streak = b.is_error ? (this.state.errorStreaks.get(key) ?? 0) + 1 : 0;
+          this.state.errorStreaks.set(key, streak);
+          if (streak === ERROR_HARD_STOP_AT - 1 && !this.state.nudged.has(`err:${key}`)) {
+            this.state.nudged.add(`err:${key}`);
+            this.emit('nudge', { reason: 'tool_repeatedly_erroring', key, streak });
+          }
+          if (streak >= ERROR_HARD_STOP_AT) {
+            this.emit('suspect-rot', { reason: 'tool_repeatedly_erroring', key, streak, state: this.state });
           }
         }
         break;
@@ -138,10 +184,33 @@ export class Worker extends EventEmitter {
         break;
     }
 
-    // Tier-0 rot heuristics: free, no model call. Escalate to CARL only on suspicion.
-    const looping = this.state.toolCalls.length >= 6 &&
-      new Set(this.state.toolCalls.slice(-6)).size === 1;
-    if (looping) this.emit('suspect-rot', { reason: 'repeated_identical_tool', state: this.state });
+    // Tier-0.5 rot heuristics: free, no model call, deterministic fingerprint+count
+    // only — the pattern every framework/production case in the research converged
+    // on. Escalate to CARL's judge only for what these can't resolve.
+    const recent = this.state.fingerprints.slice(-STUCK_WINDOW).map((f) => f.fp);
+
+    const tail = recent.slice(-HARD_STOP_AT);
+    const identicalRun = tail.length === HARD_STOP_AT && new Set(tail).size === 1;
+    const nudgeRun = recent.slice(-NUDGE_AT).length === NUDGE_AT &&
+      new Set(recent.slice(-NUDGE_AT)).size === 1;
+    if (nudgeRun && !identicalRun && !this.state.nudged.has('loop')) {
+      this.state.nudged.add('loop');
+      this.emit('nudge', { reason: 'repeated_identical_tool_call', fingerprint: tail[0] });
+    }
+    if (identicalRun) {
+      this.emit('suspect-rot', { reason: 'repeated_identical_tool_call', fingerprint: tail[0], state: this.state });
+    }
+
+    // A-B-A-B... period-2 cycling — distinct fingerprints, but oscillating rather
+    // than progressing. Misses this class entirely if you only check for a single
+    // repeated value.
+    const altTail = recent.slice(-ALTERNATION_LEN);
+    if (altTail.length === ALTERNATION_LEN) {
+      const [a, b] = altTail;
+      const alternating = a !== b && altTail.every((v, i) => v === (i % 2 === 0 ? a : b));
+      if (alternating) this.emit('suspect-rot', { reason: 'alternating_tool_cycle', pair: [a, b], state: this.state });
+    }
+
     if (this.state.turns > 40) this.emit('suspect-rot', { reason: 'turn_cap', state: this.state });
   }
 
@@ -168,6 +237,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   w.on('tool',         (t)  => console.log(`[tool ] ${t}`));
   w.on('rate-warn',    (rl) => console.warn(`[rate ] ${(rl.utilization*100).toFixed(0)}% of ${rl.rateLimitType}`));
   w.on('backpressure', (rl) => console.error(`[STOP ] ${(rl.utilization*100).toFixed(0)}% — halt admissions`));
+  w.on('nudge',        (s)  => console.warn(`[nudge] ${s.reason}`));
   w.on('suspect-rot',  (s)  => console.warn(`[rot? ] ${s.reason}`));
   w.on('malformed',    (l)  => console.error(`[bad  ] ${l.slice(0,80)}`));
 
