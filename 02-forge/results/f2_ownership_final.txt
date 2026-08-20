@@ -1,0 +1,8 @@
+    project_id    |  project_name   |              local_directory              | confidence_threshold 
+------------------+-----------------+-------------------------------------------+----------------------
+ celeste-os       | CelesteOS-Cloud | /Users/celeste7/Documents/CelesteOS-Cloud |                  0.9
+ influence        | INFLUENCE       | /Users/celeste7/Documents/INFLUENCE       |                  0.9
+ myi2             | MYI2            | /Users/celeste7/Documents/MYI2            |                  0.9
+ myi2-app-service | MYI2            | /Users/celeste7/Documents/MYI2            |                  0.9
+(4 rows)
+

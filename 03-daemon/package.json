@@ -1,0 +1,9 @@
+{
+  "name": "central-daemon",
+  "private": true,
+  "type": "module",
+  "description": "mac_execution_daemon — spawn primitives and the live ws-bridge test",
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

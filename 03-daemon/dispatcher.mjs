@@ -1,32 +1,51 @@
 /**
  * G5 — local synthetic Sentry→dispatch loop, WITH the fallback path.
+ * F2 — fuzzy-confidence ownership lookup wired in (see sql/005_fuzzy_ownership.sql).
  *
  * Polls the local Redis list `errors:incoming` (BRPOP, blocking with a timeout — a real poll
  * loop, not a busy-wait) via `redis-cli` (central-mvp-redis, port 6380). For each popped
- * error, looks up `controlplane.project_ownership` (central-mvp-pg, port 5433) by exact
- * `project_id` match:
+ * error, looks up ownership via `controlplane.lookup_owner_fuzzy(project_id)`
+ * (central-mvp-pg, port 5433):
  *
- *   HAPPY PATH   — project_id matches a seeded row, confidence (1.0 for an exact match)
- *                  clears that row's confidence_threshold → spawn exactly ONE read-only
- *                  worker (role: probe — Read tool only, see spawn.mjs ROLES) inside that
- *                  project's local_directory, via spawn.mjs's Worker class (imported
- *                  directly, not shelled out — same primitive, structured result instead of
- *                  parsed stdout). Result (cost, result text, session_id) is logged to
- *                  controlplane.events.
+ *   EXACT MATCH  — project_id matches a seeded row exactly, confidence=1.0, match_type=
+ *                  'exact'. Always clears threshold (thresholds are ≤1.0 by construction).
  *
- *   FALLBACK PATH — no row matches project_id at all. This is the path the project owner
+ *   FUZZY MATCH  — no exact match exists. The SQL function falls back to pg_trgm
+ *                  `similarity()` against every seeded project_id and returns the single best
+ *                  candidate and its real score, match_type='fuzzy'. THIS branch did not
+ *                  exist before F2 — G5's lookup was exact-match-only (see 003_ownership.sql's
+ *                  header comment and G5_RESULTS.md §7/§9), so `confidence` was always
+ *                  exactly 1.0 or the row didn't exist; there was no partial-match concept.
+ *
+ *   Either way, ROUTABLE = a match was found AND its similarity_score >= that row's own
+ *   confidence_threshold (default 0.9). This is the same comparison G5 always had
+ *   (`routable = !!owner && confidence >= threshold`) — F2 only makes `confidence` a real,
+ *   computed number instead of a constant, which makes the `confidence_below_threshold`
+ *   branch reachable for the first time.
+ *
+ *   HAPPY PATH   — routable → spawn exactly ONE read-only worker (role: probe — Read tool
+ *                  only, see spawn.mjs ROLES) inside that project's local_directory, via
+ *                  spawn.mjs's Worker class (imported directly, not shelled out — same
+ *                  primitive, structured result instead of parsed stdout). Result (cost,
+ *                  result text, session_id) is logged to controlplane.events.
+ *
+ *   FALLBACK PATH — not routable — either no candidate at all (empty ownership table, not
+ *                  reachable with the current seed data) or a candidate whose similarity_score
+ *                  falls under its confidence_threshold. This is the path the project owner
  *                  explicitly flagged as missing: an unroutable error must NEVER cause a
  *                  guessed spawn in a guessed directory. No `Worker` is ever constructed on
  *                  this path — not "constructed then aborted", never constructed at all, see
  *                  handleItem() below. The error is written to
  *                  `controlplane.unrouted_errors` (see sql/004_unrouted_errors.sql for why
- *                  that table exists instead of reusing pending_writes) and a
- *                  'unrouted_error' event is logged. A `ps aux` snapshot is taken
- *                  immediately before and after the decision as an additional, if secondary,
- *                  proof point (secondary because in this sequential single-threaded test run
- *                  any prior worker has already exited by the time the fallback item is
- *                  handled — the real proof is architectural: grep this file for `new Worker`
- *                  and see it only ever appears in the ROUTE branch).
+ *                  that table exists instead of reusing pending_writes), now carrying the REAL
+ *                  computed similarity in `matched_confidence` instead of NULL when a fuzzy
+ *                  candidate existed but scored too low. A 'unrouted_error' event is logged.
+ *                  A `ps aux` snapshot is taken immediately before and after the decision as
+ *                  an additional, if secondary, proof point (secondary because in this
+ *                  sequential single-threaded test run any prior worker has already exited by
+ *                  the time the fallback item is handled — the real proof is architectural:
+ *                  grep this file for `new Worker` and see it only ever appears in the ROUTE
+ *                  branch).
  *
  * DB access note: the dispatcher connects to Postgres as the `postgres` superuser (the
  * daemon/service persona), not as `controlplane_ai_writer`. This mirrors the G4 design
@@ -100,14 +119,25 @@ async function pgExec(sql) {
   return stdout.trim();
 }
 
+// F2: was exact-match-only against the table directly. Now calls
+// controlplane.lookup_owner_fuzzy(), which tries an exact match first (confidence=1.0) and,
+// only if none exists, falls back to pg_trgm similarity() against every seeded project_id —
+// see sql/005_fuzzy_ownership.sql. Returns null only if the ownership table itself has zero
+// rows (not reachable with the current seed data); otherwise always returns a candidate with
+// a real match_type ('exact' | 'fuzzy') and a real similarity_score, never a synthetic 1.0/0.0.
 async function lookupOwnership(projectId) {
   const rows = await pgSelect(
-    `select project_id, project_name, local_directory, confidence_threshold ` +
-    `from controlplane.project_ownership where project_id = ${sqlStr(projectId)};`
+    `select project_id, project_name, local_directory, confidence_threshold, match_type, similarity_score ` +
+    `from controlplane.lookup_owner_fuzzy(${sqlStr(projectId)});`
   );
   if (rows.length === 0) return null;
-  const [project_id, project_name, local_directory, confidence_threshold] = rows[0];
-  return { project_id, project_name, local_directory, confidence_threshold: Number(confidence_threshold) };
+  const [project_id, project_name, local_directory, confidence_threshold, match_type, similarity_score] = rows[0];
+  return {
+    project_id, project_name, local_directory,
+    confidence_threshold: Number(confidence_threshold),
+    match_type,
+    similarity_score: Number(similarity_score),
+  };
 }
 
 async function logEvent(kind, severity, body) {
@@ -150,16 +180,20 @@ async function handleItem(raw, idx) {
   console.log(`[dispatcher] ps proof (before decision): ${psBefore.length} claude stream-json process(es) running`);
 
   const owner = await lookupOwnership(project_id);
-  const confidence = owner ? 1.0 : 0.0; // exact match only — no fuzzy matching in this MVP
+  // F2: confidence is now a REAL computed number in both branches — 1.0 for an exact match,
+  // a genuine pg_trgm similarity() score (0-1) for a fuzzy match. No more "always 1.0 or the
+  // row doesn't exist" — see sql/005_fuzzy_ownership.sql and the file-header comment above.
+  const confidence = owner ? owner.similarity_score : 0.0;
   const threshold = owner ? owner.confidence_threshold : 0.9;
   const routable = !!owner && confidence >= threshold;
 
-  console.log(`[dispatcher] ownership lookup: ${owner ? `MATCH → ${owner.project_name} @ ${owner.local_directory} (threshold=${threshold})` : 'NO MATCH'}`);
-  console.log(`[dispatcher] confidence=${confidence} threshold=${threshold} → ${routable ? 'ROUTE (happy path)' : 'FALLBACK (unroutable)'}`);
+  console.log(`[dispatcher] ownership lookup: ${owner ? `${owner.match_type.toUpperCase()} MATCH → ${owner.project_name} @ ${owner.local_directory} (score=${confidence.toFixed(4)}, threshold=${threshold})` : 'NO MATCH'}`);
+  console.log(`[dispatcher] confidence=${confidence.toFixed(4)} threshold=${threshold} → ${routable ? 'ROUTE (happy path)' : 'FALLBACK (unroutable)'}`);
 
   await logEvent('routing_decision', 'info', {
     project_id, culprit, exception_type, exception_value,
     decision: routable ? 'route' : 'fallback',
+    match_type: owner?.match_type ?? null,
     matched_project_name: owner?.project_name ?? null,
     matched_directory: owner?.local_directory ?? null,
     confidence, threshold,
@@ -200,7 +234,7 @@ async function handleItem(raw, idx) {
     // is touched. This is not a caught exception or an aborted spawn — the code path simply
     // never reaches a `new Worker(...)` call for an unroutable item.
     const reason = owner ? 'confidence_below_threshold' : 'no_ownership_match';
-    console.log(`[dispatcher] would-be spawn suppressed — reason=${reason}. NOT spawning any worker. NOT touching any directory.`);
+    console.log(`[dispatcher] would-be spawn suppressed — reason=${reason}${owner ? ` (${owner.match_type} match scored ${confidence.toFixed(4)} < threshold ${threshold})` : ''}. NOT spawning any worker. NOT touching any directory.`);
 
     const unroutedId = await logUnrouted({
       project_id, culprit, exception_type, exception_value, stack_frames: stack_frames ?? [],
@@ -210,6 +244,7 @@ async function handleItem(raw, idx) {
 
     await logEvent('unrouted_error', 'warn', {
       project_id, culprit, exception_type, exception_value, reason,
+      match_type: owner?.match_type ?? null, matched_confidence: owner ? confidence : null,
       unrouted_error_id: unroutedId, would_be_spawn_suppressed: true,
     });
 

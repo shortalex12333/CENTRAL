@@ -1,0 +1,9 @@
+{
+  "project_id": "influence-legacy",
+  "culprit": "unknown/service/legacyDashboardProxy in fetchMetrics",
+  "exception_type": "ConnectionError",
+  "exception_value": "F2 test: fuzzy match against 'influence' expected similarity ~0.588 (well below 0.9 threshold) -- MUST be suppressed",
+  "stack_frames": [
+    {"filename": "unknown/service/legacyDashboardProxy.js", "function": "fetchMetrics", "lineno": 41}
+  ]
+}

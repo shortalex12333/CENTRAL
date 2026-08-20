@@ -1,0 +1,245 @@
+{
+  "logs/f3_real_probe.ndjson": {
+    "compactedStream": [
+      {
+        "t": "system",
+        "s": "init"
+      },
+      {
+        "t": "assistant"
+      },
+      {
+        "t": "assistant"
+      },
+      {
+        "t": "tool_use",
+        "tool": "Bash",
+        "args": {
+          "cmd": "find /Users/celeste7/Documents/CENTRAL -name \"CHANGELOG*\" -type f"
+        }
+      },
+      {
+        "t": "tool_result",
+        "tool": "Bash",
+        "ok": true
+      },
+      {
+        "t": "assistant"
+      },
+      {
+        "t": "assistant"
+      },
+      {
+        "t": "tool_use",
+        "tool": "Bash",
+        "args": {
+          "cmd": "find /Users/celeste7/Documents/CENTRAL -iname \"*change*\" -o -iname \"*version*\" -o -iname \"*release*\" | grep -E \"\\.(md|txt|json)$\""
+        }
+      },
+      {
+        "t": "tool_result",
+        "tool": "Bash",
+        "ok": true
+      },
+      {
+        "t": "assistant"
+      },
+      {
+        "t": "assistant"
+      },
+      {
+        "t": "tool_use",
+        "tool": "Bash",
+        "args": {
+          "cmd": "ls -la /Users/celeste7/Documents/CENTRAL"
+        }
+      },
+      {
+        "t": "tool_result",
+        "tool": "Bash",
+        "ok": true
+      },
+      {
+        "t": "assistant"
+      },
+      {
+        "t": "tool_use",
+        "tool": "Bash",
+        "args": {
+          "cmd": "find /Users/celeste7/Documents/CENTRAL -type f \\( -name \"*.md\" -o -name \"*.txt\" -o -name \"*.json\" \\) | head -20"
+        }
+      },
+      {
+        "t": "tool_result",
+        "tool": "Bash",
+        "ok": true
+      },
+      {
+        "t": "assistant"
+      },
+      {
+        "t": "tool_use",
+        "tool": "Bash",
+        "args": {
+          "cmd": "find /Users/celeste7/Documents/CENTRAL -iname \"*changelog*\" 2>/dev/null"
+        }
+      },
+      {
+        "t": "tool_result",
+        "tool": "Bash",
+        "ok": true
+      },
+      {
+        "t": "assistant"
+      },
+      {
+        "t": "assistant"
+      },
+      {
+        "t": "tool_use",
+        "tool": "Read",
+        "args": {
+          "file": "/Users/celeste7/Documents/CENTRAL/README.md"
+        }
+      },
+      {
+        "t": "tool_result",
+        "tool": "Read",
+        "ok": true
+      },
+      {
+        "t": "assistant"
+      },
+      {
+        "t": "tool_use",
+        "tool": "Bash",
+        "args": {
+          "cmd": "find /Users/celeste7/Documents/CENTRAL -name \"package.json\" -exec grep -l \"version\" {} \\;"
+        }
+      },
+      {
+        "t": "tool_result",
+        "tool": "Bash",
+        "ok": true
+      },
+      {
+        "t": "assistant"
+      },
+      {
+        "t": "result",
+        "num_turns": 8,
+        "cost_usd": 0.0475732
+      }
+    ],
+    "carl": {
+      "id": "logs/f3_real_probe.ndjson",
+      "latencyMs": 16477.956042,
+      "httpStatus": 200,
+      "rawContent": "{\"verdict\":\"continue\",\"confidence\":0.95}",
+      "parsed": {
+        "verdict": "continue",
+        "confidence": 0.95
+      },
+      "validShape": true,
+      "parseError": null
+    }
+  },
+  "logs/f3_real_probe2.ndjson": {
+    "compactedStream": [
+      {
+        "t": "system",
+        "s": "init"
+      },
+      {
+        "t": "assistant"
+      },
+      {
+        "t": "tool_use",
+        "tool": "Read",
+        "args": {
+          "file": "/Users/celeste7/Documents/CENTRAL/03-daemon/rot_thresholds.json"
+        }
+      },
+      {
+        "t": "tool_result",
+        "tool": "Read",
+        "ok": false,
+        "err": "File does not exist. Note: your current working directory is /Users/celeste7/Documents/CENTRAL."
+      },
+      {
+        "t": "assistant"
+      },
+      {
+        "t": "assistant"
+      },
+      {
+        "t": "tool_use",
+        "tool": "Bash",
+        "args": {
+          "cmd": "ls -la /Users/celeste7/Documents/CENTRAL/03-daemon/"
+        }
+      },
+      {
+        "t": "tool_result",
+        "tool": "Bash",
+        "ok": true
+      },
+      {
+        "t": "assistant"
+      },
+      {
+        "t": "assistant"
+      },
+      {
+        "t": "tool_use",
+        "tool": "Bash",
+        "args": {
+          "cmd": "find /Users/celeste7/Documents/CENTRAL -name \"*threshold*\" -o -name \"*rot*\" 2>/dev/null | head -20"
+        }
+      },
+      {
+        "t": "tool_result",
+        "tool": "Bash",
+        "ok": true
+      },
+      {
+        "t": "assistant"
+      },
+      {
+        "t": "assistant"
+      },
+      {
+        "t": "tool_use",
+        "tool": "Bash",
+        "args": {
+          "cmd": "grep -r \"hard_stop_at\" /Users/celeste7/Documents/CENTRAL 2>/dev/null"
+        }
+      },
+      {
+        "t": "tool_result",
+        "tool": "Bash",
+        "ok": true
+      },
+      {
+        "t": "assistant"
+      },
+      {
+        "t": "result",
+        "num_turns": 5,
+        "cost_usd": 0.0363829
+      }
+    ],
+    "carl": {
+      "id": "logs/f3_real_probe2.ndjson",
+      "latencyMs": 3528.62975,
+      "httpStatus": 200,
+      "rawContent": "{\"verdict\":\"continue\",\"confidence\":0.95}",
+      "parsed": {
+        "verdict": "continue",
+        "confidence": 0.95
+      },
+      "validShape": true,
+      "parseError": null
+    }
+  }
+}

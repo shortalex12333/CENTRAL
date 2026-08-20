@@ -1,0 +1,26 @@
+[dispatcher] starting — will process up to 2 item(s) from "errors:incoming", BRPOP timeout 8s each
+
+──────────────────────────────────────────────────────────────
+[dispatcher] item #1  project_id=influence-legacy  culprit=unknown/service/legacyDashboardProxy in fetchMetrics
+[dispatcher] ps proof (before decision): 0 claude stream-json process(es) running
+[dispatcher] ownership lookup: FUZZY MATCH → INFLUENCE @ /Users/celeste7/Documents/INFLUENCE (score=0.5882, threshold=0.9)
+[dispatcher] confidence=0.5882 threshold=0.9 → FALLBACK (unroutable)
+[dispatcher] would-be spawn suppressed — reason=confidence_below_threshold (fuzzy match scored 0.5882 < threshold 0.9). NOT spawning any worker. NOT touching any directory.
+[dispatcher] logged to controlplane.unrouted_errors id=430c8732-e4ef-4f31-a80f-76e5474c66cc status=needs_human_review
+[dispatcher] ps proof (after suppression): 0 claude stream-json process(es) running
+
+──────────────────────────────────────────────────────────────
+[dispatcher] item #2  project_id=myi2-appp-service  culprit=src/handlers/policyHandler.py in renew_policy
+[dispatcher] ps proof (before decision): 0 claude stream-json process(es) running
+[dispatcher] ownership lookup: FUZZY MATCH → MYI2 @ /Users/celeste7/Documents/MYI2 (score=0.9444, threshold=0.9)
+[dispatcher] confidence=0.9444 threshold=0.9 → ROUTE (happy path)
+[dispatcher] SPAWNING worker role=probe cwd=/Users/celeste7/Documents/MYI2
+[worker] ready session=cb1f6c81 tools=30
+[worker] done turns=1 cost=$0.0206 error=none
+[worker] result: The most likely file to investigate first is `src/handlers/policyHandler.py`, specifically in the `renew_policy` function where the KeyError is occurring—the exception value appears to be a test string being used as a dictionary key somewhere in that function.
+[dispatcher] ps proof (after worker exit): 0 claude stream-json process(es) running
+
+[dispatcher] === SUMMARY === processed 2/2 item(s)
+  - influence-legacy: fallback (reason=confidence_below_threshold, unrouted_id=430c8732-e4ef-4f31-a80f-76e5474c66cc)
+  - myi2-appp-service: route (session=cb1f6c81, cost=$0.0206)
+{"ok":true,"processed":2,"results":[{"decision":"fallback","project_id":"influence-legacy","reason":"confidence_below_threshold","unrouted_error_id":"430c8732-e4ef-4f31-a80f-76e5474c66cc"},{"decision":"route","project_id":"myi2-appp-service","session_id":"cb1f6c81-9329-4e36-9bee-601b8133d5e6","cost_usd":0.020639400000000002,"result":"The most likely file to investigate first is `src/handlers/policyHandler.py`, specifically in the `renew_policy` function where the KeyError is occurring—the exception value appears to be a test string being used as a dictionary key somewhere in that function."}]}

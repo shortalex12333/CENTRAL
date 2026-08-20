@@ -1,0 +1,10 @@
+{
+  "project_id": "myi2-appp-service",
+  "culprit": "src/handlers/policyHandler.py in renew_policy",
+  "exception_type": "KeyError",
+  "exception_value": "F2 test: fuzzy match against 'myi2-app-service' expected similarity ~0.944 (above 0.9 threshold) -- MUST route to a real worker in MYI2",
+  "stack_frames": [
+    {"filename": "src/handlers/policyHandler.py", "function": "renew_policy", "lineno": 55},
+    {"filename": "src/services/renewals.py", "function": "apply_terms", "lineno": 22}
+  ]
+}

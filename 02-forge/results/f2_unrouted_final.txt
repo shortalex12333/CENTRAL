@@ -1,0 +1,16 @@
+-[ RECORD 1 ]------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+id                 | 430c8732-e4ef-4f31-a80f-76e5474c66cc
+received_at        | 2026-08-20 01:18:21.606356+00
+project_id         | influence-legacy
+culprit            | unknown/service/legacyDashboardProxy in fetchMetrics
+exception_type     | ConnectionError
+exception_value    | F2 test: fuzzy match against 'influence' expected similarity ~0.588 (well below 0.9 threshold) -- MUST be suppressed
+stack_frames       | [{"lineno": 41, "filename": "unknown/service/legacyDashboardProxy.js", "function": "fetchMetrics"}]
+raw_payload        | {"culprit": "unknown/service/legacyDashboardProxy in fetchMetrics", "project_id": "influence-legacy", "received_at": "2026-08-20T01:18:17.870Z", "stack_frames": [{"lineno": 41, "filename": "unknown/service/legacyDashboardProxy.js", "function": "fetchMetrics"}], "exception_type": "ConnectionError", "exception_value": "F2 test: fuzzy match against 'influence' expected similarity ~0.588 (well below 0.9 threshold) -- MUST be suppressed"}
+reason             | confidence_below_threshold
+matched_confidence | 0.5882353186607361
+status             | needs_human_review
+reviewed_at        | 
+reviewer           | 
+review_notes       | 
+

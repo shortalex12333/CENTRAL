@@ -1,0 +1,4 @@
+[ingest] listening on http://127.0.0.1:8899  POST /ingest, GET /health
+[ingest] pushes to redis list "errors:incoming" on port 6380
+[ingest] queued project_id=influence-legacy culprit=unknown/service/legacyDashboardProxy in fetchMetrics → errors:incoming (len=1)
+[ingest] queued project_id=myi2-appp-service culprit=src/handlers/policyHandler.py in renew_policy → errors:incoming (len=2)

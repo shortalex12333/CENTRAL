@@ -14,13 +14,32 @@ import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { EventEmitter } from 'node:events';
 
-/** Per-role scoping. This is the RBAC matrix AND the cost control — one mechanism. */
+/**
+ * Per-role scoping. This is the RBAC matrix AND the cost control — one mechanism.
+ *
+ * 🔴 CORRECTED 2026-08-19: `--allowedTools` alone does NOT reliably restrict tool
+ * access under `--dangerously-skip-permissions` — confirmed empirically (F3: a
+ * role:'probe' worker scoped to tools:['Read'] used Bash twice in real captured
+ * streams; a follow-up test proved `--disallowedTools` DOES block it). Every prior
+ * claim in this project that a probe/auditor worker was "read-only" was therefore
+ * an assumption, not an enforced guarantee, until this fix. `--disallowedTools` is
+ * now the actual enforcement mechanism; `tools` stays as the allow-list for
+ * documentation/UI purposes and is passed through --allowedTools too, but nothing
+ * downstream should trust the allow-list alone as a safety boundary.
+ */
+const ALL_MUTATING_TOOLS = ['Bash', 'Write', 'Edit', 'NotebookEdit'];
+
 export const ROLES = {
   probe:     { tools: ['Read'],                            mcp: {}, model: 'claude-haiku-4-5-20251001' },
   auditor:   { tools: ['Read', 'Grep', 'Glob'],            mcp: {}, model: 'claude-haiku-4-5-20251001' },
   fixer:     { tools: ['Read', 'Grep', 'Glob', 'Edit', 'Bash'], mcp: {}, model: 'claude-sonnet-5' },
   architect: { tools: ['Read', 'Grep', 'Glob', 'Write'],   mcp: {}, model: 'claude-sonnet-5' },
 };
+
+// Compute each role's deny-list: any mutating tool NOT explicitly allowed.
+for (const spec of Object.values(ROLES)) {
+  spec.disallowed = ALL_MUTATING_TOOLS.filter((t) => !spec.tools.includes(t));
+}
 
 /** Backpressure thresholds, driven by the CLI's own rate_limit_event. */
 const RATE_LIMIT_PAUSE = 0.92;  // stop admitting new work
@@ -74,6 +93,7 @@ export class Worker extends EventEmitter {
       '--strict-mcp-config',                         // reject inherited MCP config
       '--mcp-config', JSON.stringify({ mcpServers: this.spec.mcp }),
       '--allowedTools', this.spec.tools.join(','),
+      '--disallowedTools', this.spec.disallowed.join(','),  // the real enforcement — see ROLES comment
       '--setting-sources', '',                       // no inherited settings or hooks
       '--dangerously-skip-permissions',
     ];
