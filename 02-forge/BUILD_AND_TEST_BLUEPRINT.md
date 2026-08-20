@@ -405,3 +405,90 @@ real session, any new spawn.mjs integration test) only once headroom returns.
    testing correctness-under-length not $/turn) until 7-day rate-limit headroom recovers —
    account spent $0.202 + $0.074 + $0.098 + $0.037 ≈ **$0.41 across this session's real API
    tests**, against a window that was already at 85% before any of it.
+
+   **Correction, same day, later:** the 99% reading did not turn into a hard block. Real API
+   calls continued to succeed for the rest of the day (§6 below). Treat this metric as
+   informational, not a stop condition — noted per the project owner's own framing ("small
+   metric, what does that matter").
+
+## 6. 3-hour execution block — 2026-08-19, end of day. Real bridge proven, real RBAC bug found+fixed.
+
+Four tracks run in parallel: 3 fragmented hardening items (F1, F2, F3) + the one combined
+vertical slice (C) that IS G9's actual pass condition, attempted for the first time.
+**4/4 passed.** Full detail: `02-forge/results/{F1_ATTEMPT_BURN,F2_FUZZY_MATCH,
+F3_REAL_STREAM_VALIDATION,C_LIVE_BRIDGE}_RESULTS.md`.
+
+### F1 — `claim_batch()` attempt-burn — ✅ PASS
+Ported JARVIS's `embed_queue.py` hardening properties for real. Live-tested 3 full reclaim
+cycles (attempts 0→1→2→3), confirmed the row reaches terminal `failed` at `max_attempts` and
+is then permanently excluded from both `pending` and `processing` — proven by a subsequent
+reclaim AND a subsequent `claim_batch()` both returning zero rows for it.
+
+### F2 — G5's fuzzy-match branch — ✅ PASS, and it turned out not to exist yet
+On inspection this branch was never actually buildable before: the lookup was exact-match
+only, so "confidence" was always exactly 1.0 or the row didn't exist. Built real `pg_trgm`
+similarity scoring and wired it into the dispatcher for real. Proved both sides live:
+similarity 0.588 (below the 0.9 threshold) correctly suppressed — zero workers spawned,
+routed to `unrouted_errors` with the real score attached; similarity 0.944 (above threshold)
+correctly spawned a real worker in the right directory. Closes the exact gap G5 flagged.
+
+### F3 — CARL + tier-0.5 against a REAL stream — ✅ PASS, honest true-negative
+Checked every real stream-json log already captured this session first (zero cost) — all
+were clean, no pathology. Per the cost-conscious fallback, spent 2 cheap real calls on
+genuinely underspecified read-only tasks (not instructed to loop). Both real streams: tier-0.5
+correctly stayed silent, CARL independently returned `continue`/0.95 — full agreement, both
+correct against ground truth. **Stated plainly, not manufactured: no real loop/error-streak
+pathology has been found yet in either direction — true-positive validation is still open.**
+
+### C — Live bridge — ✅ PASS. This is the thing the founder asked whether we'd proven.
+Built `PersistentWorker` (new file, existing `Worker` untouched — no regression risk to the
+hardened one-shot path), `ws-bridge.mjs`, and a bare `terminal.html`. Proved twice with real
+API calls: a direct 2-turn FALCON-codeword recall test (same pid, same session_id), then the
+full path over a real WebSocket — a programmatic client AND a real Chrome tab each opened
+independent live connections, one `PersistentWorker` per connection, correct turn-2 recall
+with a 25,204-token warm-cache hit proving session continuity. **This is G9's own stated pass
+condition, met for the first time.** Deliberately no visual polish — a scrolling log and a
+text box, per the founder's explicit "perfect the frontend later" instruction.
+
+### 🔴 Real finding, fixed same session: the RBAC claim was never actually enforced
+F3 surfaced it directly: a `role:'probe'` worker, scoped to `tools:['Read']` only, used
+`Bash` twice in real captured streams. Confirmed via a direct A/B test:
+`--allowedTools` alone does **not** reliably restrict tool access once
+`--dangerously-skip-permissions` is set — but `--disallowedTools` (an explicit deny list)
+does. **Every prior claim in this project that a probe/auditor worker was "read-only" was an
+unenforced assumption, not a guarantee, until this fix.** `spawn.mjs`'s `ROLES` now compute
+an explicit deny-list (`ALL_MUTATING_TOOLS` minus whatever's allowed) and pass it via
+`--disallowedTools`. Reproduced F3's exact failing scenario post-fix: same class of task,
+zero `Bash` used. Mitigating factor worth naming: G4's Postgres-level column grants
+(`ai_writer`/`approver` role split) were always an independent, DB-enforced layer — the
+"two orthogonal safety layers" pattern praised in the JARVIS audit — so this gap was real at
+the application layer but the database was never actually exposed by it.
+
+## 7. Scope check against `/peers`, session storage, and existing project structure
+
+The founder pushed back mid-block: does any of this need building at all, given what already
+exists? Verified, not assumed:
+
+- **Session resume across ALL existing projects, not just daemon-spawned ones — needs no new
+  storage.** Every Claude Code session is a real JSONL transcript under `~/.claude/projects/`.
+  405 project directories exist on this machine, 43 touched in the last 7 days — including
+  the real transcript of one of our own G5-dispatched workers. A GUI can enumerate and
+  `--resume` any of them today by directory-scanning.
+- **`/peers` genuinely substitutes for the blueprint's custom "Inter-Agent WebSocket Broker"
+  — for coordination, not for live viewing.** Confirmed live: 15 real peers running across
+  genuinely different projects right now, real bidirectional messaging. Caveat, confirmed not
+  assumed: it's an async mailbox (most peers show "queued only, no channel consumer"), not a
+  push/stream channel — fine for "tell another agent something," not sufficient alone for
+  "watch a terminal live," which is exactly what §6 track C's bridge is for. Complementary,
+  not redundant.
+- **Project↔repo linkage — already fully true, zero gap.** CelesteOS/Cloud_PMS, Cloud_DMG,
+  MYI2, and Influence720 each already have their own real, distinct GitHub remote.
+- **Candidate open-source GUI, gate not yet run:** `siteboon/claudecodeui` — named
+  speculatively in this project's very first research pass, now verified for real:
+  13,349 stars, pushed within 24 hours of checking, 779 commits, actively maintained. Session/
+  project browsing, file explorer, git integration, terminal access, multi-CLI. **Not yet
+  confirmed** whether it does genuine `stream-json` parsing or true `--resume` across
+  arbitrary directories — the standing gate (verify empirically, never trust docs/stars alone)
+  has not been run. Next step: clone and trial it locally against a real session before
+  writing more of the "browse my own existing sessions" UI from scratch — it's a different job
+  from §6's bridge (new dispatch-triggered workers), not a competing build.
