@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CENTRAL fleet dashboard</title>
+<style>
+  /* Deliberately plain — visual polish is explicitly deferred. Monospace + borders only. */
+  body {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px;
+    background: #111;
+    color: #ddd;
+    margin: 16px;
+  }
+  h1 {
+    font-size: 16px;
+    margin: 0 0 4px 0;
+  }
+  #status {
+    color: #8f8;
+    margin-bottom: 16px;
+  }
+  #status.stale { color: #f88; }
+  section {
+    margin-bottom: 28px;
+  }
+  h2 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid #555;
+    padding-bottom: 4px;
+    margin-bottom: 6px;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+  }
+  th, td {
+    border: 1px solid #444;
+    padding: 3px 6px;
+    text-align: left;
+    vertical-align: top;
+    max-width: 420px;
+    overflow-wrap: anywhere;
+  }
+  th {
+    background: #1e1e1e;
+    position: sticky;
+    top: 0;
+  }
+  tr:nth-child(even) td { background: #161616; }
+  .err {
+    color: #f88;
+    padding: 6px 0;
+    white-space: pre-wrap;
+  }
+  .empty {
+    color: #888;
+    padding: 6px 0;
+  }
+  code { color: #9cf; }
+</style>
+</head>
+<body>
+
+<h1>CENTRAL fleet dashboard</h1>
+<div id="status">loading...</div>
+
+<section>
+  <h2>Segments <span id="segments-count"></span></h2>
+  <div id="segments-area"></div>
+</section>
+
+<section>
+  <h2>Recent Events <span id="events-count"></span></h2>
+  <div id="events-area"></div>
+</section>
+
+<section>
+  <h2>Unrouted Errors <span id="unrouted-count"></span></h2>
+  <div id="unrouted-area"></div>
+</section>
+
+<section>
+  <h2>Pending Writes <span id="pending-writes-count"></span></h2>
+  <div id="pending-writes-area"></div>
+</section>
+
+<section>
+  <h2>Live Peers <span id="peers-count"></span></h2>
+  <div id="peers-area"></div>
+</section>
+
+<script>
+  const API_BASE = 'http://localhost:8792';
+  const POLL_MS = 5000;
+
+  // One entry per table on the page: endpoint path, DOM target, and which columns
+  // to render (in order) — kept explicit rather than "render every key" so wide
+  // jsonb blobs (events.body, unrouted.raw_payload) don't blow up the layout.
+  const SOURCES = [
+    {
+      name: 'segments',
+      path: '/segments',
+      area: 'segments-area',
+      countEl: 'segments-count',
+      columns: ['project_id', 'project_name', 'local_directory', 'confidence_threshold', 'created_at'],
+    },
+    {
+      name: 'events',
+      path: '/events?limit=50',
+      area: 'events-area',
+      countEl: 'events-count',
+      columns: ['id', 'emitted_at', 'kind', 'severity', 'runtime', 'duration_ms', 'body'],
+    },
+    {
+      name: 'unrouted',
+      path: '/unrouted',
+      area: 'unrouted-area',
+      countEl: 'unrouted-count',
+      columns: ['id', 'received_at', 'project_id', 'reason', 'matched_confidence', 'status', 'exception_value'],
+    },
+    {
+      name: 'pending-writes',
+      path: '/pending-writes',
+      area: 'pending-writes-area',
+      countEl: 'pending-writes-count',
+      columns: ['id', 'created_at', 'route', 'action_class', 'state', 'confidence', 'resolved_fields'],
+    },
+    {
+      name: 'peers',
+      path: '/peers',
+      area: 'peers-area',
+      countEl: 'peers-count',
+      columns: ['id', 'cwd', 'summary', 'last_seen', 'has_channel'],
+    },
+  ];
+
+  function cell(v) {
+    if (v === null || v === undefined) return '';
+    if (typeof v === 'object') return JSON.stringify(v);
+    return String(v);
+  }
+
+  function renderTable(source, rows) {
+    const area = document.getElementById(source.area);
+    if (!rows || rows.length === 0) {
+      area.innerHTML = '<div class="empty">(no rows)</div>';
+      return;
+    }
+    const thead = '<tr>' + source.columns.map((c) => `<th>${c}</th>`).join('') + '</tr>';
+    const tbody = rows
+      .map((row) => '<tr>' + source.columns.map((c) => `<td>${escapeHtml(cell(row[c]))}</td>`).join('') + '</tr>')
+      .join('');
+    area.innerHTML = `<table>${thead}${tbody}</table>`;
+  }
+
+  function renderError(source, message) {
+    document.getElementById(source.area).innerHTML = `<div class="err">ERROR: ${escapeHtml(message)}</div>`;
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  async function fetchOne(source) {
+    try {
+      const res = await fetch(API_BASE + source.path);
+      const body = await res.json();
+      if (!res.ok || body.ok === false) {
+        renderError(source, body.error || `HTTP ${res.status}`);
+        document.getElementById(source.countEl).textContent = '';
+        return false;
+      }
+      renderTable(source, body.rows);
+      document.getElementById(source.countEl).textContent = `(${body.count ?? body.rows?.length ?? 0})`;
+      return true;
+    } catch (err) {
+      renderError(source, `fetch failed: ${err.message} — is api.mjs running on ${API_BASE}?`);
+      document.getElementById(source.countEl).textContent = '';
+      return false;
+    }
+  }
+
+  async function pollAll() {
+    const results = await Promise.all(SOURCES.map(fetchOne));
+    const now = new Date().toLocaleTimeString();
+    const statusEl = document.getElementById('status');
+    if (results.every(Boolean)) {
+      statusEl.className = '';
+      statusEl.textContent = `last updated: ${now} (polling every ${POLL_MS / 1000}s)`;
+    } else {
+      statusEl.className = 'stale';
+      statusEl.textContent = `last updated: ${now} — one or more sources errored (see tables below)`;
+    }
+  }
+
+  pollAll();
+  setInterval(pollAll, POLL_MS);
+</script>
+
+</body>
+</html>

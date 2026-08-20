@@ -1,0 +1,12 @@
+{
+  "name": "central-dashboard",
+  "private": true,
+  "type": "module",
+  "description": "fleet dashboard — minimal read-only API + static HTML poller over controlplane.* and claude-peers.db",
+  "scripts": {
+    "start": "node api.mjs"
+  },
+  "dependencies": {
+    "pg": "^8.23.0"
+  }
+}
